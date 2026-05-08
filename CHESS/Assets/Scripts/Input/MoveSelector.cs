@@ -87,6 +87,18 @@ namespace Chess.Input
             if (isEnPassant)
                 _boardVisualizer.RemovePieceView(new Vector2Int(to.x, from.y));
 
+            // Pawn promotion: auto-Queen for Phase 1; UI hook added in Phase 5.
+            Square arrived = _boardManager.GetSquare(to.x, to.y);
+            if (arrived.Piece.Type == PieceType.Pawn)
+            {
+                int backRank = arrived.Piece.Color == PieceColor.White ? BoardConstants.Size - 1 : 0;
+                if (to.y == backRank)
+                {
+                    _boardManager.PromotePawn(to, PieceType.Queen);
+                    _boardVisualizer.ReplacePieceView(to);
+                }
+            }
+
             if (isCastling)
             {
                 bool kingside = fileDelta > 0;

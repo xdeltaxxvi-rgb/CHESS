@@ -98,6 +98,15 @@ namespace Chess.Core.Board
             Destroy(view.gameObject);
         }
 
+        // Destroys the existing view and spawns a fresh one for the promoted piece.
+        public void ReplacePieceView(Vector2Int position)
+        {
+            RemovePieceView(position);
+            Square sq = _boardManager.GetSquare(position.x, position.y);
+            if (sq.IsOccupied)
+                SpawnPiece(sq.Piece, position.x, position.y);
+        }
+
         private Vector3 TilePosition(int file, int rank, float yOffset) =>
             new Vector3(
                 (file - BoardConstants.Size / 2f + 0.5f) * _tileSize,
