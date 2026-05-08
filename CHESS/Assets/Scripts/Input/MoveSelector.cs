@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Chess.Core.Board;
 using Chess.Core.Pieces;
+using static Chess.Core.Board.MoveValidator;
 
 namespace Chess.Input
 {
@@ -50,7 +51,7 @@ namespace Chess.Input
             Deselect();
             _selectedView = view;
             _selectedView.SetTint(_selectedTint);
-            _validMoves = piece.GetValidMoves(_boardManager.GetBoard());
+            _validMoves = GetLegalMoves(piece, _boardManager.GetBoard());
             HighlightMoves(_validMoves);
         }
 
