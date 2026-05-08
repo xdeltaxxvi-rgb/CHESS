@@ -108,6 +108,8 @@ CHESS/                          ← Git repo root
 - **`Chess.Input` namespace**: Any code inside this namespace must qualify Unity's input class as `UnityEngine.Input.` (e.g. `UnityEngine.Input.GetMouseButtonDown(0)`) to avoid ambiguity with the namespace name itself.
 - **`Square` struct mutation**: To modify a field on a Square, always copy→modify→write back: `var sq = _board[f,r]; sq.Piece = p; _board[f,r] = sq;`. Direct field assignment on an array element of a value type does not compile.
 - The board **data** (C# classes) is completely separate from the **visual** (GameObjects/prefabs). `BoardManager` owns data; a separate `BoardVisualizer` syncs GameObjects to data.
+- **`Square.IsEnPassantTarget`**: transient bool flag set by `BoardManager.ExecuteMove` on the square a pawn passed through on a double-step; cleared at the start of every subsequent move. `Pawn.GetValidMoves` reads it directly from the board array — no signature change to `GetValidMoves` needed.
+- **Special move pattern (castling, en passant, promotion)**: every special move must be handled in **three places**: `BoardManager.ExecuteMove` (data), `MoveSelector.ExecuteMove` (visual), and `MoveValidator.Simulate` (simulation). All three must stay in sync. Castling = King moves ±2 files. En passant = pawn moves to `IsEnPassantTarget` square; captured pawn is at `(to.x, from.y)`. Promotion = pawn lands on back rank; `BoardManager.PromotePawn` + `BoardVisualizer.ReplacePieceView`. The auto-Queen call in `MoveSelector` is the **Phase 5 UI extension point**.
 
 ### Game Flow
 - `GameManager` is the single source of truth for: whose turn it is, whether game is over, current board state.
