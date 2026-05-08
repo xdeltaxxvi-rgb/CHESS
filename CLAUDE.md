@@ -48,8 +48,8 @@ CHESS/                          ← Git repo root
 │   ├── Assets/
 │   │   ├── Scripts/
 │   │   │   ├── Core/
-│   │   │   │   ├── Board/          ← BoardManager.cs, Square.cs
-│   │   │   │   ├── Pieces/         ← Piece.cs (base), King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
+│   │   │   │   ├── Board/          ← BoardManager.cs, BoardConstants.cs, Square.cs, SquareColor.cs
+│   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
 │   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss
 │   │   │   ├── AI/
 │   │   │   │   └── ChessAI.cs      ← IChessAI interface + minimax implementation
@@ -103,7 +103,7 @@ CHESS/                          ← Git repo root
 - Board is a **2D array `Square[8,8]`** — file 0–7 (A–H), rank 0–7 (1–8).
 - `Square` is a **struct**, not a MonoBehaviour. It holds data only.
 - `Piece` is an **abstract C# class** (not MonoBehaviour). Each piece type is a subclass.
-- `GetValidMoves(Board board)` is abstract on `Piece` — every subclass implements its own movement rules.
+- `GetValidMoves(Square[,] board)` is abstract on `Piece` — every subclass implements its own movement rules. The raw `Square[8,8]` array is passed directly; there is no `Board` wrapper class.
 - The board **data** (C# classes) is completely separate from the **visual** (GameObjects/prefabs). `BoardManager` owns data; a separate `BoardVisualizer` syncs GameObjects to data.
 
 ### Game Flow
