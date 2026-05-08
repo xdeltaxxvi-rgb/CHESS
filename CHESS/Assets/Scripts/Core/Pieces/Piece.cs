@@ -27,5 +27,22 @@ namespace Chess.Core.Pieces
         protected static bool IsInBounds(int file, int rank) =>
             file >= 0 && file < BoardConstants.Size &&
             rank >= 0 && rank < BoardConstants.Size;
+
+        // Shared by Rook, Bishop, Queen. Pass parallel arrays of file/rank deltas for each ray direction.
+        protected void AddSlidingMoves(List<Vector2Int> moves, Square[,] board, int[] fileDirs, int[] rankDirs)
+        {
+            for (int i = 0; i < fileDirs.Length; i++)
+            {
+                for (int step = 1; step < BoardConstants.Size; step++)
+                {
+                    int f = Position.x + fileDirs[i] * step;
+                    int r = Position.y + rankDirs[i] * step;
+                    if (!IsInBounds(f, r)) break;
+                    if (board[f, r].IsOccupiedByColor(Color)) break;
+                    moves.Add(new Vector2Int(f, r));
+                    if (board[f, r].IsOccupied) break;
+                }
+            }
+        }
     }
 }
