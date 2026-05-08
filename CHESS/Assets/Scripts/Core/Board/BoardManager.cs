@@ -77,5 +77,21 @@ namespace Chess.Core.Board
         }
 
         public Square[,] GetBoard() => _board;
+
+        public void ExecuteMove(Vector2Int from, Vector2Int to)
+        {
+            Piece piece = _board[from.x, from.y].Piece;
+
+            Square fromSq = _board[from.x, from.y];
+            fromSq.Piece = null;
+            _board[from.x, from.y] = fromSq;
+
+            Square toSq = _board[to.x, to.y];
+            toSq.Piece = piece;
+            _board[to.x, to.y] = toSq;
+
+            piece.Position = to;
+            piece.HasMoved = true;
+        }
     }
 }

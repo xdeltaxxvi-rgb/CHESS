@@ -83,6 +83,21 @@ namespace Chess.Core.Board
         public PieceView GetPieceView(Vector2Int position) =>
             _pieceViews.TryGetValue(position, out PieceView view) ? view : null;
 
+        public void MovePieceView(Vector2Int from, Vector2Int to)
+        {
+            if (!_pieceViews.TryGetValue(from, out PieceView view)) return;
+            _pieceViews.Remove(from);
+            _pieceViews[to] = view;
+            view.transform.localPosition = TilePosition(to.x, to.y, _tileSize * 0.5f);
+        }
+
+        public void RemovePieceView(Vector2Int at)
+        {
+            if (!_pieceViews.TryGetValue(at, out PieceView view)) return;
+            _pieceViews.Remove(at);
+            Destroy(view.gameObject);
+        }
+
         private Vector3 TilePosition(int file, int rank, float yOffset) =>
             new Vector3(
                 (file - BoardConstants.Size / 2f + 0.5f) * _tileSize,
