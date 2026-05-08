@@ -74,8 +74,22 @@ namespace Chess.Input
             if (board[to.x, to.y].IsOccupied)
                 _boardVisualizer.RemovePieceView(to);
 
+            // Cache castling info before data changes.
+            int fileDelta = to.x - from.x;
+            bool isCastling = board[from.x, from.y].Piece.Type == PieceType.King &&
+                              (fileDelta == 2 || fileDelta == -2);
+
             _boardManager.ExecuteMove(from, to);
             _boardVisualizer.MovePieceView(from, to);
+
+            if (isCastling)
+            {
+                bool kingside = fileDelta > 0;
+                int rookFromFile = kingside ? BoardConstants.Size - 1 : 0;
+                int rookToFile = kingside ? to.x - 1 : to.x + 1;
+                _boardVisualizer.MovePieceView(new Vector2Int(rookFromFile, from.y),
+                                               new Vector2Int(rookToFile, from.y));
+            }
 
             Deselect();
             OnMoveExecuted?.Invoke();
