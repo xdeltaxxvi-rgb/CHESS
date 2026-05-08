@@ -79,6 +79,24 @@ namespace Chess.Core.Board
 
         public Square[,] GetBoard() => _board;
 
+        // Replaces a pawn that reached the back rank with the chosen piece type.
+        public void PromotePawn(Vector2Int position, PieceType promoteTo)
+        {
+            PieceColor color = _board[position.x, position.y].Piece.Color;
+            Piece promoted = CreatePiece(promoteTo, color, position);
+            promoted.HasMoved = true;
+            PlacePiece(promoted, position.x, position.y);
+        }
+
+        private static Piece CreatePiece(PieceType type, PieceColor color, Vector2Int pos) => type switch
+        {
+            PieceType.Queen  => (Piece)new Queen (color, pos),
+            PieceType.Rook   =>        new Rook  (color, pos),
+            PieceType.Bishop =>        new Bishop(color, pos),
+            PieceType.Knight =>        new Knight(color, pos),
+            _ => throw new System.ArgumentException($"Cannot promote to {type}")
+        };
+
         public void ExecuteMove(Vector2Int from, Vector2Int to)
         {
             Piece piece = _board[from.x, from.y].Piece;
