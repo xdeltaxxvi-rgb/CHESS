@@ -16,7 +16,6 @@ namespace Chess.Core.Pieces
             Color = color;
             Position = position;
             Type = type;
-            HasMoved = false;
         }
 
         public abstract List<Vector2Int> GetValidMoves(Square[,] board);
