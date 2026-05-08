@@ -75,5 +75,7 @@ namespace Chess.Core.Board
             Debug.Assert(IsValidCoordinate(file, rank));
             return _board[file, rank].IsOccupied;
         }
+
+        public Square[,] GetBoard() => _board;
     }
 }
