@@ -52,6 +52,20 @@ namespace Chess.Core.Board
             Square fs = sim[from.x, from.y]; fs.Piece = null; sim[from.x, from.y] = fs;
             Square ts = sim[to.x, to.y]; ts.Piece = piece; sim[to.x, to.y] = ts;
 
+            // Castling: also relocate the Rook so check detection sees the correct board.
+            int fileDelta = to.x - from.x;
+            if (piece.Type == PieceType.King && (fileDelta == 2 || fileDelta == -2))
+            {
+                bool kingside = fileDelta > 0;
+                int rookFromFile = kingside ? BoardConstants.Size - 1 : 0;
+                int rookToFile = kingside ? to.x - 1 : to.x + 1;
+                int rank = from.y;
+
+                Piece rook = sim[rookFromFile, rank].Piece;
+                Square rs = sim[rookFromFile, rank]; rs.Piece = null; sim[rookFromFile, rank] = rs;
+                Square rd = sim[rookToFile, rank]; rd.Piece = rook; sim[rookToFile, rank] = rd;
+            }
+
             return sim;
         }
     }

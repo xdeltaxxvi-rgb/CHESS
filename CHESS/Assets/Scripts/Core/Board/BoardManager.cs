@@ -92,6 +92,22 @@ namespace Chess.Core.Board
 
             piece.Position = to;
             piece.HasMoved = true;
+
+            // Castling: also relocate the Rook in data.
+            int fileDelta = to.x - from.x;
+            if (piece.Type == PieceType.King && (fileDelta == 2 || fileDelta == -2))
+            {
+                bool kingside = fileDelta > 0;
+                int rookFromFile = kingside ? BoardConstants.Size - 1 : 0;
+                int rookToFile = kingside ? to.x - 1 : to.x + 1;
+                int rank = from.y;
+
+                Piece rook = _board[rookFromFile, rank].Piece;
+                Square rs = _board[rookFromFile, rank]; rs.Piece = null; _board[rookFromFile, rank] = rs;
+                Square rd = _board[rookToFile, rank]; rd.Piece = rook; _board[rookToFile, rank] = rd;
+                rook.Position = new Vector2Int(rookToFile, rank);
+                rook.HasMoved = true;
+            }
         }
     }
 }
