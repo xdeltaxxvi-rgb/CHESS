@@ -1,16 +1,27 @@
+using System.Collections.Generic;
 using UnityEngine;
+using Chess.Core.Pieces;
 
 namespace Chess.Core.Board
 {
     public class BoardVisualizer : MonoBehaviour
     {
+        [SerializeField] private BoardManager _boardManager;
         [SerializeField] private Material _lightMaterial;
         [SerializeField] private Material _darkMaterial;
+        [SerializeField] private Color _whiteTint = Color.white;
+        [SerializeField] private Color _blackTint = new Color(0.15f, 0.15f, 0.15f);
         [SerializeField] private float _tileSize = 1f;
 
         private GameObject[,] _tiles;
+        private readonly Dictionary<Vector2Int, PieceView> _pieceViews = new Dictionary<Vector2Int, PieceView>();
 
-        private void Awake() => GenerateBoard();
+        // Start runs after all Awake calls, so BoardManager data is ready.
+        private void Start()
+        {
+            GenerateBoard();
+            SpawnPieces();
+        }
 
         private void GenerateBoard()
         {
@@ -25,11 +36,7 @@ namespace Chess.Core.Board
             GameObject tile = GameObject.CreatePrimitive(PrimitiveType.Quad);
             tile.name = $"{(char)('A' + file)}{rank + 1}";
             tile.transform.SetParent(transform);
-            tile.transform.localPosition = new Vector3(
-                (file - BoardConstants.Size / 2f + 0.5f) * _tileSize,
-                0f,
-                (rank - BoardConstants.Size / 2f + 0.5f) * _tileSize
-            );
+            tile.transform.localPosition = TilePosition(file, rank, 0f);
             tile.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             tile.transform.localScale = Vector3.one * _tileSize;
 
@@ -39,11 +46,49 @@ namespace Chess.Core.Board
             _tiles[file, rank] = tile;
         }
 
+        private void SpawnPieces()
+        {
+            for (int file = 0; file < BoardConstants.Size; file++)
+            {
+                for (int rank = 0; rank < BoardConstants.Size; rank++)
+                {
+                    Square sq = _boardManager.GetSquare(file, rank);
+                    if (sq.IsOccupied)
+                        SpawnPiece(sq.Piece, file, rank);
+                }
+            }
+        }
+
+        private void SpawnPiece(Piece piece, int file, int rank)
+        {
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = $"{piece.Color}_{piece.Type}_{(char)('A' + file)}{rank + 1}";
+            go.transform.SetParent(transform);
+            go.transform.localPosition = TilePosition(file, rank, _tileSize * 0.5f);
+            go.transform.localScale = Vector3.one * _tileSize * 0.8f;
+
+            Color tint = piece.Color == PieceColor.White ? _whiteTint : _blackTint;
+            PieceView view = go.AddComponent<PieceView>();
+            view.Initialise(piece, tint);
+
+            _pieceViews[piece.Position] = view;
+        }
+
         public GameObject GetTile(int file, int rank)
         {
             Debug.Assert(IsValidCoordinate(file, rank), $"({file},{rank}) out of bounds.");
             return _tiles[file, rank];
         }
+
+        public PieceView GetPieceView(Vector2Int position) =>
+            _pieceViews.TryGetValue(position, out PieceView view) ? view : null;
+
+        private Vector3 TilePosition(int file, int rank, float yOffset) =>
+            new Vector3(
+                (file - BoardConstants.Size / 2f + 0.5f) * _tileSize,
+                yOffset,
+                (rank - BoardConstants.Size / 2f + 0.5f) * _tileSize
+            );
 
         private bool IsValidCoordinate(int file, int rank) =>
             file >= 0 && file < BoardConstants.Size &&
