@@ -28,12 +28,13 @@ namespace Chess.Core.Pieces
                     moves.Add(new Vector2Int(file, fwd2));
             }
 
-            // Diagonal captures
+            // Diagonal captures (normal and en passant)
             foreach (int df in new[] { -1, 1 })
             {
                 int cf = file + df;
                 int cr = rank + dir;
-                if (IsInBounds(cf, cr) && board[cf, cr].IsOccupiedByColor(Opponent()))
+                if (IsInBounds(cf, cr) &&
+                    (board[cf, cr].IsOccupiedByColor(Opponent()) || board[cf, cr].IsEnPassantTarget))
                     moves.Add(new Vector2Int(cf, cr));
             }
 

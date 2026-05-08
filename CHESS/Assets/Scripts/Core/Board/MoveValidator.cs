@@ -49,6 +49,12 @@ namespace Chess.Core.Board
             var sim = (Square[,])board.Clone();
             Piece piece = sim[from.x, from.y].Piece;
 
+            // En passant: remove the bypassed pawn so check detection sees the correct board.
+            if (piece.Type == PieceType.Pawn && sim[to.x, to.y].IsEnPassantTarget)
+            {
+                Square capSq = sim[to.x, from.y]; capSq.Piece = null; sim[to.x, from.y] = capSq;
+            }
+
             Square fs = sim[from.x, from.y]; fs.Piece = null; sim[from.x, from.y] = fs;
             Square ts = sim[to.x, to.y]; ts.Piece = piece; sim[to.x, to.y] = ts;
 

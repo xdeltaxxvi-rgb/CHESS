@@ -64,7 +64,8 @@ namespace Chess.Input
                 if (tile == null) continue;
                 var rend = tile.GetComponent<MeshRenderer>();
                 _highlights.Add((tile, rend.material.color));
-                rend.material.color = board[coord.x, coord.y].IsOccupied ? _captureTint : _moveTint;
+                bool isCapture = board[coord.x, coord.y].IsOccupied || board[coord.x, coord.y].IsEnPassantTarget;
+                rend.material.color = isCapture ? _captureTint : _moveTint;
             }
         }
 
@@ -74,13 +75,17 @@ namespace Chess.Input
             if (board[to.x, to.y].IsOccupied)
                 _boardVisualizer.RemovePieceView(to);
 
-            // Cache castling info before data changes.
+            // Cache special-move info before data changes.
+            Piece movingPiece = board[from.x, from.y].Piece;
+            bool isEnPassant = movingPiece.Type == PieceType.Pawn && board[to.x, to.y].IsEnPassantTarget;
             int fileDelta = to.x - from.x;
-            bool isCastling = board[from.x, from.y].Piece.Type == PieceType.King &&
-                              (fileDelta == 2 || fileDelta == -2);
+            bool isCastling = movingPiece.Type == PieceType.King && (fileDelta == 2 || fileDelta == -2);
 
             _boardManager.ExecuteMove(from, to);
             _boardVisualizer.MovePieceView(from, to);
+
+            if (isEnPassant)
+                _boardVisualizer.RemovePieceView(new Vector2Int(to.x, from.y));
 
             if (isCastling)
             {

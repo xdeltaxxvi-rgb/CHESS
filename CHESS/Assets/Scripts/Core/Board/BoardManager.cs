@@ -6,6 +6,7 @@ namespace Chess.Core.Board
     public class BoardManager : MonoBehaviour
     {
         private Square[,] _board;
+        private Vector2Int? _enPassantTarget;
 
         private void Awake()
         {
@@ -82,6 +83,23 @@ namespace Chess.Core.Board
         {
             Piece piece = _board[from.x, from.y].Piece;
 
+            // En passant: detect before clearing the flag, then remove the bypassed pawn.
+            bool isEnPassant = piece.Type == PieceType.Pawn && _board[to.x, to.y].IsEnPassantTarget;
+
+            // Clear previous en passant target.
+            if (_enPassantTarget.HasValue)
+            {
+                Square eq = _board[_enPassantTarget.Value.x, _enPassantTarget.Value.y];
+                eq.IsEnPassantTarget = false;
+                _board[_enPassantTarget.Value.x, _enPassantTarget.Value.y] = eq;
+                _enPassantTarget = null;
+            }
+
+            if (isEnPassant)
+            {
+                Square capSq = _board[to.x, from.y]; capSq.Piece = null; _board[to.x, from.y] = capSq;
+            }
+
             Square fromSq = _board[from.x, from.y];
             fromSq.Piece = null;
             _board[from.x, from.y] = fromSq;
@@ -92,6 +110,15 @@ namespace Chess.Core.Board
 
             piece.Position = to;
             piece.HasMoved = true;
+
+            // Set en passant target for pawn double-step.
+            int rankDelta = to.y - from.y;
+            if (piece.Type == PieceType.Pawn && (rankDelta == 2 || rankDelta == -2))
+            {
+                int epRank = (from.y + to.y) / 2;
+                _enPassantTarget = new Vector2Int(from.x, epRank);
+                Square epSq = _board[from.x, epRank]; epSq.IsEnPassantTarget = true; _board[from.x, epRank] = epSq;
+            }
 
             // Castling: also relocate the Rook in data.
             int fileDelta = to.x - from.x;
