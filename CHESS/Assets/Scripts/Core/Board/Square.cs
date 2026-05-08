@@ -19,6 +19,7 @@ namespace Chess.Core.Board
             Rank = rank;
             Color = (file + rank) % 2 == 0 ? SquareColor.Dark : SquareColor.Light;
             Piece = null;
+            IsEnPassantTarget = false;
         }
 
         public bool IsOccupiedByColor(PieceColor color) =>
