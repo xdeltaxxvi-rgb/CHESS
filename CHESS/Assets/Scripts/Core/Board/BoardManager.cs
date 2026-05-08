@@ -1,4 +1,5 @@
 using UnityEngine;
+using Chess.Core.Pieces;
 
 namespace Chess.Core.Board
 {
@@ -6,7 +7,11 @@ namespace Chess.Core.Board
     {
         private Square[,] _board;
 
-        private void Awake() => InitialiseBoard();
+        private void Awake()
+        {
+            InitialiseBoard();
+            InitialiseStartingPieces();
+        }
 
         private void InitialiseBoard()
         {
@@ -14,6 +19,45 @@ namespace Chess.Core.Board
             for (int file = 0; file < BoardConstants.Size; file++)
                 for (int rank = 0; rank < BoardConstants.Size; rank++)
                     _board[file, rank] = new Square(file, rank);
+        }
+
+        private void InitialiseStartingPieces()
+        {
+            // White back rank (rank 0)
+            PlacePiece(new Rook(PieceColor.White, new Vector2Int(0, 0)), 0, 0);
+            PlacePiece(new Knight(PieceColor.White, new Vector2Int(1, 0)), 1, 0);
+            PlacePiece(new Bishop(PieceColor.White, new Vector2Int(2, 0)), 2, 0);
+            PlacePiece(new Queen(PieceColor.White, new Vector2Int(3, 0)), 3, 0);
+            PlacePiece(new King(PieceColor.White, new Vector2Int(4, 0)), 4, 0);
+            PlacePiece(new Bishop(PieceColor.White, new Vector2Int(5, 0)), 5, 0);
+            PlacePiece(new Knight(PieceColor.White, new Vector2Int(6, 0)), 6, 0);
+            PlacePiece(new Rook(PieceColor.White, new Vector2Int(7, 0)), 7, 0);
+
+            // White pawns (rank 1)
+            for (int file = 0; file < BoardConstants.Size; file++)
+                PlacePiece(new Pawn(PieceColor.White, new Vector2Int(file, 1)), file, 1);
+
+            // Black pawns (rank 6)
+            for (int file = 0; file < BoardConstants.Size; file++)
+                PlacePiece(new Pawn(PieceColor.Black, new Vector2Int(file, 6)), file, 6);
+
+            // Black back rank (rank 7)
+            PlacePiece(new Rook(PieceColor.Black, new Vector2Int(0, 7)), 0, 7);
+            PlacePiece(new Knight(PieceColor.Black, new Vector2Int(1, 7)), 1, 7);
+            PlacePiece(new Bishop(PieceColor.Black, new Vector2Int(2, 7)), 2, 7);
+            PlacePiece(new Queen(PieceColor.Black, new Vector2Int(3, 7)), 3, 7);
+            PlacePiece(new King(PieceColor.Black, new Vector2Int(4, 7)), 4, 7);
+            PlacePiece(new Bishop(PieceColor.Black, new Vector2Int(5, 7)), 5, 7);
+            PlacePiece(new Knight(PieceColor.Black, new Vector2Int(6, 7)), 6, 7);
+            PlacePiece(new Rook(PieceColor.Black, new Vector2Int(7, 7)), 7, 7);
+        }
+
+        public void PlacePiece(Piece piece, int file, int rank)
+        {
+            Debug.Assert(IsValidCoordinate(file, rank), $"({file},{rank}) out of bounds.");
+            Square sq = _board[file, rank];
+            sq.Piece = piece;
+            _board[file, rank] = sq;
         }
 
         public Square GetSquare(int file, int rank)
