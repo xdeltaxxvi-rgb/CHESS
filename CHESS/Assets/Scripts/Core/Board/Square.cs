@@ -8,6 +8,8 @@ namespace Chess.Core.Board
         public int Rank { get; }
         public SquareColor Color { get; }
         public Piece Piece { get; set; }
+        // Set on the square a pawn passed through on a double-step; cleared every move.
+        public bool IsEnPassantTarget { get; set; }
 
         public bool IsOccupied => Piece != null;
 
