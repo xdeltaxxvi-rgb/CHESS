@@ -25,7 +25,8 @@ A 3D story-driven chess game for Android and iOS. The core mechanic is standard 
 
 | Tool | Version | Purpose |
 |---|---|---|
-| Unity | 2022 LTS | Game engine |
+| Unity | **6000.4.6f1 (Unity 6)** | Game engine |
+| IDE | **Visual Studio 2026** | C# development |
 | Render Pipeline | URP (Universal) | Mobile-optimised rendering |
 | Language | C# (.NET Standard 2.1) | All game logic |
 | Dialogue | Yarn Spinner (free) | Story narration, pre/post-match dialogue |
@@ -215,7 +216,8 @@ Every agent session follows this exact protocol:
 - **GitHub repo:** https://github.com/xdeltaxxvi-rgb/CHESS
 - **Project board:** https://github.com/users/xdeltaxxvi-rgb/projects/1
 - **Issue tracker:** https://github.com/xdeltaxxvi-rgb/CHESS/issues
-- **Unity version:** 2022 LTS (download from Unity Hub if not installed)
+- **Unity version:** 6000.4.6f1 (Unity 6) — install via Unity Hub
+- **IDE:** Visual Studio 2026
 - **Yarn Spinner docs:** https://www.yarnspinner.dev/
 - **Unity URP docs:** https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest
 
