@@ -4,6 +4,10 @@ namespace Chess.Core.Board
 {
     public static class AttackChecker
     {
+        private static readonly int[] PawnFileDelta   = { -1,  1 };
+        private static readonly int[] KnightFileDelta = {  2,  2, -2, -2,  1,  1, -1, -1 };
+        private static readonly int[] KnightRankDelta = {  1, -1,  1, -1,  2, -2,  2, -2 };
+
         public static bool IsAttackedBy(Square[,] board, int file, int rank, PieceColor attacker)
         {
             return AttackedByPawn(board, file, rank, attacker)
@@ -17,7 +21,7 @@ namespace Chess.Core.Board
         {
             int pawnRank = rank - (attacker == PieceColor.White ? 1 : -1);
             if (pawnRank < 0 || pawnRank >= BoardConstants.Size) return false;
-            foreach (int df in new[] { -1, 1 })
+            foreach (int df in PawnFileDelta)
             {
                 int pf = file + df;
                 if (pf < 0 || pf >= BoardConstants.Size) continue;
@@ -30,12 +34,10 @@ namespace Chess.Core.Board
 
         private static bool AttackedByKnight(Square[,] board, int file, int rank, PieceColor attacker)
         {
-            int[] fd = {  2,  2, -2, -2,  1,  1, -1, -1 };
-            int[] rd = {  1, -1,  1, -1,  2, -2,  2, -2 };
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < KnightFileDelta.Length; i++)
             {
-                int f = file + fd[i];
-                int r = rank + rd[i];
+                int f = file + KnightFileDelta[i];
+                int r = rank + KnightRankDelta[i];
                 if (f < 0 || f >= BoardConstants.Size || r < 0 || r >= BoardConstants.Size) continue;
                 Square sq = board[f, r];
                 if (sq.IsOccupied && sq.Piece.Color == attacker && sq.Piece.Type == PieceType.Knight)

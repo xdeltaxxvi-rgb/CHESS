@@ -71,12 +71,6 @@ namespace Chess.Core.Board
             file >= 0 && file < BoardConstants.Size &&
             rank >= 0 && rank < BoardConstants.Size;
 
-        public bool IsOccupied(int file, int rank)
-        {
-            Debug.Assert(IsValidCoordinate(file, rank));
-            return _board[file, rank].IsOccupied;
-        }
-
         public Square[,] GetBoard() => _board;
 
         // Replaces a pawn that reached the back rank with the chosen piece type.
@@ -115,7 +109,9 @@ namespace Chess.Core.Board
 
             if (isEnPassant)
             {
-                Square capSq = _board[to.x, from.y]; capSq.Piece = null; _board[to.x, from.y] = capSq;
+                Square capSq = _board[to.x, from.y];
+                capSq.Piece = null;
+                _board[to.x, from.y] = capSq;
             }
 
             Square fromSq = _board[from.x, from.y];
@@ -135,7 +131,9 @@ namespace Chess.Core.Board
             {
                 int epRank = (from.y + to.y) / 2;
                 _enPassantTarget = new Vector2Int(from.x, epRank);
-                Square epSq = _board[from.x, epRank]; epSq.IsEnPassantTarget = true; _board[from.x, epRank] = epSq;
+                Square epSq = _board[from.x, epRank];
+                epSq.IsEnPassantTarget = true;
+                _board[from.x, epRank] = epSq;
             }
 
             // Castling: also relocate the Rook in data.
@@ -148,8 +146,12 @@ namespace Chess.Core.Board
                 int rank = from.y;
 
                 Piece rook = _board[rookFromFile, rank].Piece;
-                Square rs = _board[rookFromFile, rank]; rs.Piece = null; _board[rookFromFile, rank] = rs;
-                Square rd = _board[rookToFile, rank]; rd.Piece = rook; _board[rookToFile, rank] = rd;
+                Square rs = _board[rookFromFile, rank];
+                rs.Piece = null;
+                _board[rookFromFile, rank] = rs;
+                Square rd = _board[rookToFile, rank];
+                rd.Piece = rook;
+                _board[rookToFile, rank] = rd;
                 rook.Position = new Vector2Int(rookToFile, rank);
                 rook.HasMoved = true;
             }

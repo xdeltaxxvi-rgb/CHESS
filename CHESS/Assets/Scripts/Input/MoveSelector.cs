@@ -16,7 +16,7 @@ namespace Chess.Input
         [SerializeField] private Color _moveTint = new Color(0f, 0.8f, 0f);
         [SerializeField] private Color _captureTint = new Color(0.8f, 0f, 0f);
 
-        // GameManager sets this each turn (Issue #20). Defaults to White for standalone testing.
+        // GameManager sets this each turn; defaults to White for standalone testing.
         public PieceColor CurrentPlayer { get; set; } = PieceColor.White;
 
         // GameManager subscribes to switch turn after each move.
