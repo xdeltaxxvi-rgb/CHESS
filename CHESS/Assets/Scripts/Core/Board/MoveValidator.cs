@@ -31,6 +31,17 @@ namespace Chess.Core.Board
             return legal;
         }
 
+        // True if the given color has at least one legal move available.
+        public static bool HasAnyLegalMove(Square[,] board, PieceColor color)
+        {
+            for (int f = 0; f < BoardConstants.Size; f++)
+                for (int r = 0; r < BoardConstants.Size; r++)
+                    if (board[f, r].IsOccupied && board[f, r].Piece.Color == color)
+                        if (GetLegalMoves(board[f, r].Piece, board).Count > 0)
+                            return true;
+            return false;
+        }
+
         // Shallow-clones the board and applies one move. Safe because only Square
         // struct values change — Piece objects are never mutated during simulation.
         private static Square[,] Simulate(Square[,] board, Vector2Int from, Vector2Int to)
