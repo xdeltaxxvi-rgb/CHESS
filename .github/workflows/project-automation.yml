@@ -1,0 +1,46 @@
+name: Project Automation
+
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request:
+    types: [opened, closed, reopened]
+
+jobs:
+  # Auto-add new issues to the project board
+  add-to-project:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' && github.event.action == 'opened'
+    steps:
+      - uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/users/xdeltaxxvi-rgb/projects/1
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+
+  # Move issue to In Progress when a PR is opened that references it
+  pr-opened:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'opened'
+    steps:
+      - name: Move linked issues to In Progress
+        uses: leonsteinhaeuser/project-beta-automations@v2.2.1
+        with:
+          gh_token: ${{ secrets.PROJECT_TOKEN }}
+          user: xdeltaxxvi-rgb
+          project_id: 1
+          resource_node_id: ${{ github.event.pull_request.node_id }}
+          status_value: "In Progress"
+
+  # Move to Done when PR is merged
+  pr-merged:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    steps:
+      - name: Move linked issues to Done
+        uses: leonsteinhaeuser/project-beta-automations@v2.2.1
+        with:
+          gh_token: ${{ secrets.PROJECT_TOKEN }}
+          user: xdeltaxxvi-rgb
+          project_id: 1
+          resource_node_id: ${{ github.event.pull_request.node_id }}
+          status_value: "Done"
