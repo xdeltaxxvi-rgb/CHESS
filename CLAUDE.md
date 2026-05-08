@@ -206,6 +206,35 @@ Every agent session follows this exact protocol:
 
 ---
 
+## Every-3-Issues Cleanup Protocol
+
+After every 3 merged issues, run this checklist before starting the next issue. Create a `chore/cleanup-after-issues-X-Y` branch and PR for any fixes found.
+
+**1. CLAUDE.md audit**
+- [ ] Repository layout still matches the actual filesystem
+- [ ] All versions (Unity, packages, tools) still accurate
+- [ ] Architecture decisions section still reflects the code that was actually written
+- [ ] "Current phase" updated if a phase just completed
+
+**2. PR queue**
+- [ ] No open PRs are stacked — everything that's approved is merged to `main`
+- [ ] `main` builds without errors
+
+**3. Config files**
+- [ ] `.gitignore` patterns still apply (no dead rules, no missing rules)
+- [ ] `.gitattributes` LFS rules cover any new file types added
+
+**4. Naming consistency**
+- [ ] Scene names, folder names, and class names match what CLAUDE.md specifies
+- [ ] No `SampleScene`, `NewScript`, or placeholder names left in the project
+
+**5. Lessons learned**
+- [ ] Any constraint discovered during the last 3 issues (engine limits, API changes, build surprises) added to CLAUDE.md under Architecture Decisions
+
+If nothing needs changing, still create a one-line commit `chore: cleanup check after issues #N–#N — no changes needed` so there is a record that the check was done.
+
+---
+
 ## Git Workflow
 
 - **Branch naming:** `phase1/P1-T04-board-manager`, `phase2/P2-T03-minimax`, etc.
