@@ -20,5 +20,12 @@ namespace Chess.Core.Pieces
         }
 
         public abstract List<Vector2Int> GetValidMoves(Square[,] board);
+
+        protected PieceColor Opponent() =>
+            Color == PieceColor.White ? PieceColor.Black : PieceColor.White;
+
+        protected static bool IsInBounds(int file, int rank) =>
+            file >= 0 && file < BoardConstants.Size &&
+            rank >= 0 && rank < BoardConstants.Size;
     }
 }
