@@ -16,10 +16,13 @@ namespace Chess.Core
 
         public PieceColor CurrentTurn { get; private set; } = PieceColor.White;
         public bool IsInCheck { get; private set; }
+        public bool IsGameOver { get; private set; }
 
         // HUDManager subscribes to update the turn indicator and check display.
         public event Action<PieceColor> OnTurnChanged;
         public event Action<bool> OnCheckChanged;
+        // winner == null → stalemate (draw); winner != null → that color won.
+        public event Action<PieceColor?> OnGameOver;
 
         private PieceView _checkedKingView;
 
@@ -50,6 +53,18 @@ namespace Chess.Core
 
             if (IsInCheck)
                 ShowCheckVisual(board, CurrentTurn);
+
+            if (!MoveValidator.HasAnyLegalMove(board, CurrentTurn))
+            {
+                IsGameOver = true;
+                _moveSelector.enabled = false;
+                // Checkmate: in check + no moves → opponent wins. Stalemate: not in check → draw.
+                PieceColor? winner = IsInCheck
+                    ? (CurrentTurn == PieceColor.White ? PieceColor.Black : PieceColor.White)
+                    : (PieceColor?)null;
+                OnGameOver?.Invoke(winner);
+                return;
+            }
 
             OnTurnChanged?.Invoke(CurrentTurn);
             OnCheckChanged?.Invoke(IsInCheck);
