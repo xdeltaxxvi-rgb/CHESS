@@ -104,6 +104,7 @@ CHESS/                          ← Git repo root
 - `Square` is a **struct**, not a MonoBehaviour. It holds data only.
 - `Piece` is an **abstract C# class** (not MonoBehaviour). Each piece type is a subclass.
 - `GetValidMoves(Square[,] board)` is abstract on `Piece` — every subclass implements its own movement rules. The raw `Square[8,8]` array is passed directly; there is no `Board` wrapper class.
+- **Sliding pieces (Rook, Bishop, Queen)** use the protected `Piece.AddSlidingMoves(moves, board, fileDirs, rankDirs)` helper — pass parallel int arrays of file/rank deltas for each ray direction. Do not re-implement the ray-scanning loop in individual subclasses.
 - **`Chess.Input` namespace**: Any code inside this namespace must qualify Unity's input class as `UnityEngine.Input.` (e.g. `UnityEngine.Input.GetMouseButtonDown(0)`) to avoid ambiguity with the namespace name itself.
 - **`Square` struct mutation**: To modify a field on a Square, always copy→modify→write back: `var sq = _board[f,r]; sq.Piece = p; _board[f,r] = sq;`. Direct field assignment on an array element of a value type does not compile.
 - The board **data** (C# classes) is completely separate from the **visual** (GameObjects/prefabs). `BoardManager` owns data; a separate `BoardVisualizer` syncs GameObjects to data.
