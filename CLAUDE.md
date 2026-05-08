@@ -48,8 +48,8 @@ CHESS/                          ← Git repo root
 │   ├── Assets/
 │   │   ├── Scripts/
 │   │   │   ├── Core/
-│   │   │   │   ├── Board/          ← BoardManager.cs, BoardConstants.cs, Square.cs, SquareColor.cs
-│   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
+│   │   │   │   ├── Board/          ← BoardManager.cs, BoardConstants.cs, BoardVisualizer.cs, Square.cs, SquareColor.cs
+│   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, PieceView.cs, King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
 │   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss
 │   │   │   ├── AI/
 │   │   │   │   └── ChessAI.cs      ← IChessAI interface + minimax implementation
@@ -104,6 +104,8 @@ CHESS/                          ← Git repo root
 - `Square` is a **struct**, not a MonoBehaviour. It holds data only.
 - `Piece` is an **abstract C# class** (not MonoBehaviour). Each piece type is a subclass.
 - `GetValidMoves(Square[,] board)` is abstract on `Piece` — every subclass implements its own movement rules. The raw `Square[8,8]` array is passed directly; there is no `Board` wrapper class.
+- **`Chess.Input` namespace**: Any code inside this namespace must qualify Unity's input class as `UnityEngine.Input.` (e.g. `UnityEngine.Input.GetMouseButtonDown(0)`) to avoid ambiguity with the namespace name itself.
+- **`Square` struct mutation**: To modify a field on a Square, always copy→modify→write back: `var sq = _board[f,r]; sq.Piece = p; _board[f,r] = sq;`. Direct field assignment on an array element of a value type does not compile.
 - The board **data** (C# classes) is completely separate from the **visual** (GameObjects/prefabs). `BoardManager` owns data; a separate `BoardVisualizer` syncs GameObjects to data.
 
 ### Game Flow
@@ -153,7 +155,7 @@ CHESS/                          ← Git repo root
 - **Namespaces:** `Chess.Core`, `Chess.AI`, `Chess.Input`, `Chess.Story`, `Chess.UI`, `Chess.Save`
 - **Naming:** PascalCase for classes/methods/properties. camelCase for local vars and private fields (`_camelCase` prefix for private instance fields).
 - **No MonoBehaviour on data classes.** `Square`, `Piece` and its subclasses, `SaveData`, `Move` — these are plain C# objects.
-- **MonoBehaviours** are only for: `BoardManager`, `BoardVisualizer`, `GameManager`, `TileSelector`, `MoveSelector`, `NarrativeController`, `HUDManager`, `SaveManager`, `AudioManager`.
+- **MonoBehaviours** are only for: `BoardManager`, `BoardVisualizer`, `PieceView`, `GameManager`, `TileSelector`, `MoveSelector`, `NarrativeController`, `HUDManager`, `SaveManager`, `AudioManager`.
 - **No singletons** except `GameManager`, `SaveManager`, `AudioManager` — accessed via static `Instance` property with lazy init.
 - **No magic numbers.** Board size = `BoardConstants.Size` (8). Piece values = constants in `PieceValues`.
 - **Comments:** Only when the WHY is non-obvious. No explaining what the code does.
