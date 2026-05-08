@@ -36,46 +36,49 @@ A 3D story-driven chess game for Android and iOS. The core mechanic is standard 
 | IAP | Unity IAP | Chapter unlock purchases |
 | Analytics | Firebase Analytics | Player behaviour tracking |
 | Version Control | Git (GitHub) | xdeltaxxvi-rgb/CHESS |
-| Build targets | Android ARM64+ARMv7 (IL2CPP), iOS arm64 (IL2CPP) | Release builds |
+| Build targets | Android ARM64+ARMv7 (IL2CPP) API 26+, iOS arm64 (IL2CPP) iOS 16.0+ | Release builds |
 
 ---
 
 ## Repository Layout
 
 ```
-CHESS/
-├── Assets/
-│   ├── Scripts/
-│   │   ├── Core/
-│   │   │   ├── Board/          ← BoardManager.cs, Square.cs
-│   │   │   ├── Pieces/         ← Piece.cs (base), King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
-│   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss
-│   │   ├── AI/
-│   │   │   └── ChessAI.cs      ← IChessAI interface + minimax implementation
-│   │   ├── Input/
-│   │   │   ├── TileSelector.cs ← Raycasting, tile/piece hit detection
-│   │   │   └── MoveSelector.cs ← Valid move highlighting, move execution
-│   │   ├── Story/
-│   │   │   └── NarrativeController.cs ← Story state, Yarn triggers, faction swaps
-│   │   ├── UI/
-│   │   │   └── HUDManager.cs   ← In-game HUD, menus, dialogue overlay
-│   │   └── Save/
-│   │       └── SaveManager.cs  ← Serialise/deserialise game progress to JSON
-│   ├── Prefabs/
-│   │   ├── Pieces/             ← One prefab per piece type per faction
-│   │   └── UI/
-│   ├── Scenes/
-│   │   ├── MainMenu.unity
-│   │   ├── ChapterSelect.unity
-│   │   └── Game.unity          ← Single game scene; faction/chapter loaded at runtime
-│   ├── Art/
-│   │   ├── Models/             ← FBX files, organised by faction
-│   │   ├── Materials/          ← One material per faction team
-│   │   └── Textures/           ← 1024x1024 atlases per faction
-│   ├── Audio/
-│   │   ├── Music/              ← OGG loop tracks per chapter
-│   │   └── SFX/                ← Piece movement, capture, check, UI sounds
-│   └── Dialogue/               ← .yarn scripts per chapter (Ch1.yarn, Ch2.yarn, …)
+CHESS/                          ← Git repo root
+├── CHESS/                      ← Unity project (subfolder created by Unity Hub)
+│   ├── Assets/
+│   │   ├── Scripts/
+│   │   │   ├── Core/
+│   │   │   │   ├── Board/          ← BoardManager.cs, Square.cs
+│   │   │   │   ├── Pieces/         ← Piece.cs (base), King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
+│   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss
+│   │   │   ├── AI/
+│   │   │   │   └── ChessAI.cs      ← IChessAI interface + minimax implementation
+│   │   │   ├── Input/
+│   │   │   │   ├── TileSelector.cs ← Raycasting, tile/piece hit detection
+│   │   │   │   └── MoveSelector.cs ← Valid move highlighting, move execution
+│   │   │   ├── Story/
+│   │   │   │   └── NarrativeController.cs ← Story state, Yarn triggers, faction swaps
+│   │   │   ├── UI/
+│   │   │   │   └── HUDManager.cs   ← In-game HUD, menus, dialogue overlay
+│   │   │   └── Save/
+│   │   │       └── SaveManager.cs  ← Serialise/deserialise game progress to JSON
+│   │   ├── Prefabs/
+│   │   │   ├── Pieces/             ← One prefab per piece type per faction
+│   │   │   └── UI/
+│   │   ├── Scenes/
+│   │   │   ├── MainMenu.unity
+│   │   │   ├── ChapterSelect.unity
+│   │   │   └── Game.unity          ← Single game scene; faction/chapter loaded at runtime
+│   │   ├── Art/
+│   │   │   ├── Models/             ← FBX files, organised by faction
+│   │   │   ├── Materials/          ← One material per faction team
+│   │   │   └── Textures/           ← 1024x1024 atlases per faction
+│   │   ├── Audio/
+│   │   │   ├── Music/              ← OGG loop tracks per chapter
+│   │   │   └── SFX/                ← Piece movement, capture, check, UI sounds
+│   │   └── Dialogue/               ← .yarn scripts per chapter (Ch1.yarn, Ch2.yarn, …)
+│   ├── Packages/               ← Unity package manifest (URP etc.)
+│   └── ProjectSettings/        ← Platform settings (Android/iOS, quality, graphics)
 ├── docs/
 │   └── TEST_PLAN.md            ← Created in Phase 8
 ├── scripts/
@@ -86,9 +89,11 @@ CHESS/
 │   └── workflows/
 │       └── project-automation.yml ← Auto-moves project board cards
 ├── CLAUDE.md                   ← THIS FILE
-├── .gitignore                  ← Excludes Library/, Temp/, Obj/, dist/, .claude/
+├── .gitignore                  ← Repo-level ignores (build artefacts, IDE files)
 └── .gitattributes              ← Unity binary files + LFS rules for assets
 ```
+
+> **Note:** All Unity file paths (Assets/, ProjectSettings/, etc.) are relative to `CHESS/CHESS/`, not the repo root.
 
 ---
 
@@ -198,6 +203,35 @@ Every agent session follows this exact protocol:
 - Rename or refactor code not related to the current issue
 - Create files or folders not in the architecture above without updating CLAUDE.md
 - Merge your own PR — the human reviews first
+
+---
+
+## Every-3-Issues Cleanup Protocol
+
+After every 3 merged issues, run this checklist before starting the next issue. Create a `chore/cleanup-after-issues-X-Y` branch and PR for any fixes found.
+
+**1. CLAUDE.md audit**
+- [ ] Repository layout still matches the actual filesystem
+- [ ] All versions (Unity, packages, tools) still accurate
+- [ ] Architecture decisions section still reflects the code that was actually written
+- [ ] "Current phase" updated if a phase just completed
+
+**2. PR queue**
+- [ ] No open PRs are stacked — everything that's approved is merged to `main`
+- [ ] `main` builds without errors
+
+**3. Config files**
+- [ ] `.gitignore` patterns still apply (no dead rules, no missing rules)
+- [ ] `.gitattributes` LFS rules cover any new file types added
+
+**4. Naming consistency**
+- [ ] Scene names, folder names, and class names match what CLAUDE.md specifies
+- [ ] No `SampleScene`, `NewScript`, or placeholder names left in the project
+
+**5. Lessons learned**
+- [ ] Any constraint discovered during the last 3 issues (engine limits, API changes, build surprises) added to CLAUDE.md under Architecture Decisions
+
+If nothing needs changing, still create a one-line commit `chore: cleanup check after issues #N–#N — no changes needed` so there is a record that the check was done.
 
 ---
 
