@@ -26,11 +26,10 @@ namespace Chess.Core.Board
             file >= 0 && file < BoardConstants.Size &&
             rank >= 0 && rank < BoardConstants.Size;
 
-        // Always false until Square holds a Piece reference.
         public bool IsOccupied(int file, int rank)
         {
             Debug.Assert(IsValidCoordinate(file, rank));
-            return false;
+            return _board[file, rank].IsOccupied;
         }
     }
 }
