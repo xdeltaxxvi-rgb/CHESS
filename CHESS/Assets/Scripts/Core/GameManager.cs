@@ -39,12 +39,15 @@ namespace Chess.Core
         // winner == null → stalemate (draw); winner != null → that color won.
         public event Action<PieceColor?> OnGameOver;
 
-        private PieceView        _checkedKingView;
-        private List<PieceView>  _attackerViews = new List<PieceView>();
+        // Check tile highlight state — stores each tile's GameObject + original material color
+        // so we can restore it when the check is resolved.
+        private (GameObject tile, Color original)? _kingCheckTile;
+        private readonly List<(GameObject tile, Color original)> _attackerCheckTiles
+            = new List<(GameObject, Color)>();
 
-        // Tint colours: king = red, attacker(s) = orange.
-        private static readonly Color KingInCheckTint   = Color.red;
-        private static readonly Color AttackerTint      = new Color(1f, 0.45f, 0f);
+        // Tile tint colours: king square = red, attacker square = orange.
+        private static readonly Color KingInCheckTint = new Color(0.85f, 0.12f, 0.12f);
+        private static readonly Color AttackerTint    = new Color(1f, 0.45f, 0f);
 
         // -------------------------------------------------------------------------
 
@@ -171,26 +174,21 @@ namespace Chess.Core
 
         private void ShowCheckVisual(Square[,] board, PieceColor color)
         {
-            // Tint the checked king red.
             for (int f = 0; f < BoardConstants.Size; f++)
                 for (int r = 0; r < BoardConstants.Size; r++)
                     if (board[f, r].IsOccupied &&
                         board[f, r].Piece.Color == color &&
                         board[f, r].Piece.Type  == PieceType.King)
                     {
-                        _checkedKingView = _boardVisualizer.GetPieceView(new Vector2Int(f, r));
-                        _checkedKingView?.SetTint(KingInCheckTint);
+                        // Tint the king's tile red.
+                        _kingCheckTile = TintTile(f, r, KingInCheckTint);
 
-                        // Tint every piece that is delivering check orange.
+                        // Tint every attacker's tile orange.
                         Vector2Int kingPos = new Vector2Int(f, r);
-                        foreach (Vector2Int attackerPos in FindCheckingPieces(board, color, kingPos))
+                        foreach (Vector2Int ap in FindCheckingPieces(board, color, kingPos))
                         {
-                            PieceView av = _boardVisualizer.GetPieceView(attackerPos);
-                            if (av != null)
-                            {
-                                av.SetTint(AttackerTint);
-                                _attackerViews.Add(av);
-                            }
+                            var entry = TintTile(ap.x, ap.y, AttackerTint);
+                            if (entry.HasValue) _attackerCheckTiles.Add(entry.Value);
                         }
                         return;
                     }
@@ -198,12 +196,33 @@ namespace Chess.Core
 
         private void ClearCheckVisual()
         {
-            _checkedKingView?.ResetTint();
-            _checkedKingView = null;
+            if (_kingCheckTile.HasValue)
+            {
+                RestoreTile(_kingCheckTile.Value);
+                _kingCheckTile = null;
+            }
+            foreach (var entry in _attackerCheckTiles)
+                RestoreTile(entry);
+            _attackerCheckTiles.Clear();
+        }
 
-            foreach (PieceView av in _attackerViews)
-                av?.ResetTint();
-            _attackerViews.Clear();
+        // Tints a board tile and returns its original colour so it can be restored later.
+        private (GameObject tile, Color original)? TintTile(int file, int rank, Color tint)
+        {
+            GameObject tile = _boardVisualizer.GetTile(file, rank);
+            if (tile == null) return null;
+            var rend = tile.GetComponent<MeshRenderer>();
+            if (rend == null) return null;
+            Color original = rend.material.color;
+            rend.material.color = tint;
+            return (tile, original);
+        }
+
+        private static void RestoreTile((GameObject tile, Color original) entry)
+        {
+            if (entry.tile == null) return;
+            var rend = entry.tile.GetComponent<MeshRenderer>();
+            if (rend != null) rend.material.color = entry.original;
         }
 
         /// <summary>

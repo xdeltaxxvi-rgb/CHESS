@@ -67,7 +67,9 @@ CHESS/                          ← Git repo root
 │   │   │   │   ├── TileSelector.cs ← Raycasting, tile/piece hit detection
 │   │   │   │   └── MoveSelector.cs ← Valid move highlighting, move execution; fires OnMoveExecutedDetailed(from,to)
 │   │   │   ├── Editor/             ← Editor-only scripts (stripped from builds automatically by Unity)
-│   │   │   │   └── SceneSetup.cs   ← One-time scene bootstrap tool (camera, board, lighting)
+│   │   │   │   ├── SceneSetup.cs        ← One-time scene bootstrap tool (camera, board, lighting)
+│   │   │   │   ├── DifficultyDebugMenu.cs ← Chess ▶ Difficulty menu: set Easy/Medium/Hard during playtests (checkmarks show active level)
+│   │   │   │   └── AIGameValidator.cs   ← Chess ▶ Validate AI: runs 9 self-play games (3×difficulty), asserts no illegal moves
 │   │   │   ├── Story/              ← Phase 4 (not yet created)
 │   │   │   │   └── NarrativeController.cs ← Story state, Yarn triggers, faction swaps
 │   │   │   ├── UI/                 ← Phase 5 (not yet created)
@@ -214,6 +216,21 @@ CHESS/                          ← Git repo root
 - Depth 6 > 3 s: reduce Hard depth from 6 → 5 in `DifficultySettings.cs`
 - Excess GC: the main source is `List<Move>` allocation in `GenerateOrderedMoves` / `GenerateCapturesOrdered` — pre-allocated pools would fix it (Phase 7 optimisation)
 - High node count with slow time: check null move pruning is activating (requires depth ≥ 3 and not in endgame)
+
+### AI Playtest Procedure (Issue #34)
+**Automated legality check (editor, no human required):**
+1. Open Unity → menu bar **Chess ▶ Validate AI ▶ Run Self-Play Test (9 games)**
+2. Watch the Console — one line per game, final summary `✓ PASS` or `✗ FAIL — N illegal-move game(s)`
+3. Any `[AIValidator] ILLEGAL` line is a regression — fix the move-generation or AI bug it points to before proceeding
+
+**Manual difficulty playtest (human required, 2 games per level):**
+1. Use **Chess ▶ Difficulty** menu to set the level (checkmark shows current level)
+2. Press Play; level takes effect immediately via `DifficultySettings`
+3. Play 2 full games against each level and assess:
+   - **Easy (depth 2)**: makes occasional blunders, beatable by a casual player
+   - **Medium (depth 4)**: plays solid tactics, punishes obvious mistakes
+   - **Hard (depth 6)**: strong positional + tactical play, challenging for intermediate players
+4. Watch the Console after each Black move for `[AI Perf]` timing confirmation
 
 ---
 
