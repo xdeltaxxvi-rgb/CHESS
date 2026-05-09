@@ -122,16 +122,27 @@ namespace Chess.Core
         {
             _moveSelector.enabled = false;
 
-            Square[,] board        = _boardManager.GetBoard();
-            int       depth        = _aiDepth;
-            bool      quiescence   = _useQuiescence;
-            bool      useBook      = _useOpeningBook;
-            PieceColor color       = CurrentTurn;
+            Square[,] board      = _boardManager.GetBoard();
+            int       depth      = _aiDepth;
+            bool      quiescence = _useQuiescence;
+            bool      useBook    = _useOpeningBook;
+            PieceColor color     = CurrentTurn;
             // Capture the key at this moment (before the AI's move is appended).
             string historyKey = useBook ? _moveHistoryKey : string.Empty;
 
+            // ----- Performance measurement ---------------------------------------
+            long memBefore = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong();
+            var  sw        = System.Diagnostics.Stopwatch.StartNew();
+
             Move? move = await Task.Run(() =>
                 _ai.GetBestMove(board, color, depth, quiescence, historyKey));
+
+            sw.Stop();
+            long memAfter = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong();
+
+            AIPerformanceLogger.LogMoveTime(depth, sw.ElapsedMilliseconds, _ai.NodesSearched);
+            AIPerformanceLogger.LogMemorySnapshot(memBefore, memAfter);
+            // --------------------------------------------------------------------
 
             // Game may have ended while the AI was computing.
             if (IsGameOver) return;
