@@ -52,7 +52,10 @@ CHESS/                          ← Git repo root
 │   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, PieceView.cs, King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
 │   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss
 │   │   │   ├── AI/
-│   │   │   │   └── ChessAI.cs      ← IChessAI interface + minimax implementation
+│   │   │   │   ├── ChessAI.cs      ← IChessAI interface + minimax implementation
+│   │   │   │   ├── Evaluator.cs    ← Static board evaluator (material + piece-square tables)
+│   │   │   │   ├── PieceValues.cs  ← Centipawn constants: P=100 N=320 B=330 R=500 Q=900
+│   │   │   │   └── PieceSquareTables.cs ← 8×8 positional bonus arrays per piece type
 │   │   │   ├── Input/
 │   │   │   │   ├── TileSelector.cs ← Raycasting, tile/piece hit detection
 │   │   │   │   └── MoveSelector.cs ← Valid move highlighting, move execution
@@ -125,9 +128,21 @@ CHESS/                          ← Git repo root
 
 ### AI
 - AI lives behind `IChessAI` interface. `GameManager` calls `GetBestMove()` — never the concrete class directly.
-- Difficulty = minimax search depth. Chapter maps to depth: Ch1→2, Ch2-3→3, Ch4-5→4, Ch6-7→5, Ch8→6.
-- AI computation runs on a **background thread** (C# `Task`). Main thread shows "Thinking…" and waits.
-- AI must **never** return an illegal move. If no moves available, return null (checkmate/stalemate handled by GameManager).
+- **Difficulty model: Easy / Medium / Hard** (player-chosen global setting, applies to ALL chapters). NOT per-chapter scaling.
+  - Easy = depth 2, no quiescence search — makes mistakes, accessible to beginners.
+  - Medium = depth 4, quiescence on — solid tactical play.
+  - Hard = depth 6, quiescence on — strong play, challenges intermediate players.
+  - Stored in `SaveData`, loaded into `GameManager._aiDepth` on scene start.
+- **AI technique stack** (implemented across issues #28–#31):
+  - Evaluation: material (P=100 N=320 B=330 R=500 Q=900) + piece-square tables + pawn structure + king safety + mobility + bishop pair + endgame detection
+  - Search: negamax + iterative deepening + quiescence search
+  - Pruning: alpha-beta + null move pruning + late move reductions (LMR)
+  - Ordering: MVV-LVA captures first + killer move heuristic
+  - Caching: Zobrist-hashed transposition table
+  - Opening: hardcoded book (~20 lines, Medium/Hard only)
+- AI computation runs on a **background thread** (C# `Task`). Main thread waits; "Thinking…" shown by HUDManager (Phase 5).
+- AI must **never** return an illegal move. If no moves available, return null — GameManager handles checkmate/stalemate.
+- Do **not** use Stockfish or any external process/binary — iOS bans child processes; Android requires impractical JNI native plugin.
 
 ### Story & Factions
 - `NarrativeController` reads the current chapter from `SaveManager` and:
