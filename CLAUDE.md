@@ -143,8 +143,8 @@ CHESS/                          ← Git repo root
 - Auto-save on: chapter complete, chapter start, app pause (`OnApplicationPause`).
 
 ### Camera
-- **Orthographic** camera. Rotation `(50°, 45°, 0°)`, orthographic size `7`. Forward vector = (0.707, −0.542, 0.454), so position must be `(−23.5, 18, −15.1)` to look at world origin (0, 0, 0) where the board sits. **50° pitch** (not 30°) is required — 30° is too shallow, making the far half of the board visually compressed and unclickable in practice.
-- **Camera math rule**: for any Euler(pitchX, 45°, 0°) angle, position = (−d·sin45°, 18, −d·cos45°·cos pitchX) where d = 18 / sin pitchX. Change only pitchX if angle needs tuning; the formula keeps the camera pointed at origin.
+- **Orthographic** camera. Rotation `(50°, 45°, 0°)`, orthographic size `7`. Position `(−10.7, 18, −10.7)` to look at world origin where the board sits. **50° pitch** (not 30°) is required — 30° is too shallow, making the far half of the board visually compressed and unclickable in practice.
+- **Camera math rule for Euler(p, 45°, 0°)** — Unity applies Q = Qy·Qx, so forward = Qy(45°)·Qx(p)·(0,0,1) = (cos_p·0.707, −sin_p, cos_p·0.707). Position: d = 18/sin_p, cx = cz = −d·cos_p·0.707. For 45° yaw cx always equals cz. Example values: p=30° → pos(−22,18,−22); p=45° → pos(−12.7,18,−12.7); p=50° → pos(−10.7,18,−10.7); p=60° → pos(−7.4,18,−7.4).
 - Orthographic size is tuned for a landscape 8×8 board. Adjust for portrait/device aspect ratio in Phase 7.
 - Do not use perspective cameras for the board scene.
 

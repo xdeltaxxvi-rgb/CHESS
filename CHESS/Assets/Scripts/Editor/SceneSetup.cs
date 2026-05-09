@@ -69,9 +69,13 @@ namespace Chess.Editor
                 Camera cam = Camera.main;
                 cam.orthographic = true;
                 cam.orthographicSize = 7f;
-                // Euler(50°,45°,0°) forward = (0.707, -0.542, 0.454).
-                // Camera must sit at (-23.5, 18, -15.1) so the ray hits world origin (0,0,0).
-                cam.transform.position = new Vector3(-23.5f, 18f, -15.1f);
+                // Euler(pitchX, 45°, 0°) formula:
+                //   forward = (cos_p·sin45°,  -sin_p,  cos_p·cos45°)
+                //   d       = 18 / sin_p
+                //   cx = cz = -d · cos_p · sin45°  (always equal for 45° yaw)
+                // For pitch=50°: sin50=0.766, cos50=0.643
+                //   d=23.5, cx=cz=-23.5·0.643·0.707=-10.7
+                cam.transform.position = new Vector3(-10.7f, 18f, -10.7f);
                 cam.transform.rotation = Quaternion.Euler(50f, 45f, 0f);
                 EditorUtility.SetDirty(cam);
             }
