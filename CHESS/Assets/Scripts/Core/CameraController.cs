@@ -5,52 +5,52 @@ namespace Chess.Core
     /// <summary>
     /// Drives the main orthographic camera for portrait-first play.
     ///
-    /// The camera maintains a fixed isometric angle (pitch 50°, yaw 45°) and
-    /// dynamically computes its orthographic size so the full board is always
-    /// visible on any supported screen resolution.  A vertical offset shifts
-    /// the board toward the top of the screen, reserving the lower portion for
-    /// the Phase-5 HUD.
+    /// Targets the same visual style as Clash Royale:
+    ///   • True isometric angle  — pitch 35.264° (arctan(1/√2)), yaw 45°
+    ///   • Board in upper ~70%   — _verticalViewOffset shifts the view to
+    ///     leave room for the Phase-5 HUD at the bottom
+    ///   • Dynamic orthoSize     — board corners are projected onto the
+    ///     camera axes at runtime so the size is always correct regardless
+    ///     of pitch, yaw, or screen resolution
     ///
-    /// Orthographic size is the maximum of two constraints:
-    ///   • Portrait  (aspect &lt; 1): width binding  → (boardHalfWidth  + padding) / aspect
-    ///   • Landscape (aspect ≥ 1): height binding → boardHalfHeight + padding + verticalOffset
-    ///
-    /// Board projected dimensions (derived from pitch=50°, yaw=45°, board=8×8 units):
-    ///   Half-width  in screen space = 7 × sin 45° ≈ 4.95 world units
-    ///   Half-height from centre     = 3.80 world units  (board centre to far corner)
+    /// Call Apply() after a screen-orientation change (Phase 7).
     /// </summary>
     [RequireComponent(typeof(Camera))]
     public class CameraController : MonoBehaviour
     {
         // ── Inspector ─────────────────────────────────────────────────────────
 
-        [Tooltip("World-unit padding added to each side of the board's projected extents " +
-                 "before computing orthographic size. Increase to zoom out, decrease to zoom in.")]
-        [SerializeField] private float _padding = 0.75f;
+        [Tooltip("Camera pitch in degrees. 35.264° = true isometric (arctan 1/√2). " +
+                 "Do not go below 30° — the far rank becomes hard to read and tap.")]
+        [SerializeField] private float _pitch = 35.264f;
 
-        [Tooltip("How far below board centre the camera's look-at point sits, measured in " +
-                 "camera-up world units. Positive values push the board toward the top of the " +
-                 "screen, leaving space for the Phase-5 HUD at the bottom. " +
-                 "Tweak in the Inspector to taste; 4.5 centres the board in the upper ~70%.")]
-        [SerializeField] private float _verticalViewOffset = 4.5f;
+        [Tooltip("Camera yaw in degrees. 45° = diagonal isometric (Clash Royale style).")]
+        [SerializeField] private float _yaw = 45f;
 
-        // ── Fixed geometry (CLAUDE.md architecture decision) ──────────────────
+        [Tooltip("World units the camera sits above the look-at plane.")]
+        [SerializeField] private float _height = 18f;
 
-        // 50° pitch is required — 30° compresses the far rank and makes it unclickable.
-        private const float Pitch  = 50f;
-        private const float Yaw    = 45f;
-        // Camera sits 18 world units above the look-at plane.
-        private const float Height = 18f;
+        [Tooltip("World-unit padding added around the board when computing orthographic size.")]
+        [SerializeField] private float _padding = 1.0f;
 
-        // Board occupies (0,0,0) → (7,0,7); its centre is at (3.5, 0, 3.5).
+        [Tooltip("Shifts the look-at point below board centre (in camera-up space), " +
+                 "pushing the board toward the top of the screen. " +
+                 "Increase to raise the board, decrease to lower it.")]
+        [SerializeField] private float _verticalViewOffset = 3.5f;
+
+        // ── Fixed geometry ────────────────────────────────────────────────────
+
+        // Board occupies (0,0,0)→(7,0,7); centre at (3.5, 0, 3.5).
         private static readonly Vector3 BoardCentre = new Vector3(3.5f, 0f, 3.5f);
 
-        // Precomputed projected extents of the 8×8 board at pitch=50°, yaw=45°.
-        //   HalfWidthInScreen  = 7 × cos 45° = 4.95  (dominant for portrait)
-        //   HalfHeightInScreen = distance from board centre to far corner ≈ 3.80
-        // These are fixed because the camera angle is fixed.
-        private const float HalfWidthInScreen  = 4.95f;
-        private const float HalfHeightInScreen = 3.80f;
+        // World-space corners of the board used to compute the bounding box.
+        private static readonly Vector3[] BoardCorners =
+        {
+            new Vector3(0f, 0f, 0f),
+            new Vector3(7f, 0f, 0f),
+            new Vector3(0f, 0f, 7f),
+            new Vector3(7f, 0f, 7f),
+        };
 
         // ── Runtime ───────────────────────────────────────────────────────────
 
@@ -67,37 +67,55 @@ namespace Chess.Core
         // ── Public API ────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Re-applies all camera settings.  Call after a screen-orientation
-        /// change or if the board layout changes (Phase 7 responsive scaling).
+        /// Re-applies all camera settings. Call after a screen-orientation
+        /// change or a board-layout change (Phase 7 responsive scaling).
         /// </summary>
         public void Apply()
         {
             if (_cam == null) _cam = GetComponent<Camera>();
-
             _cam.orthographic = true;
 
             // ── 1. Rotation ───────────────────────────────────────────────────
-            transform.rotation = Quaternion.Euler(Pitch, Yaw, 0f);
+            transform.rotation = Quaternion.Euler(_pitch, _yaw, 0f);
 
             // ── 2. Position ───────────────────────────────────────────────────
-            // Look-at is shifted below BoardCentre along the camera's up axis so
-            // the rendered board sits in the upper portion of the portrait screen.
+            // The look-at point is shifted below BoardCentre along the camera-up
+            // axis so the board sits in the upper portion of the portrait screen
+            // (leaving the bottom ~30% for the Phase-5 HUD).
             //
-            // Camera position = lookAt − forward × d,  where d = Height / sin(pitch).
-            // d ≈ 18 / 0.766 ≈ 23.5 world units.
-            float   d      = Height / Mathf.Sin(Pitch * Mathf.Deg2Rad);
-            Vector3 lookAt = BoardCentre - transform.up * _verticalViewOffset;
+            // Camera position = lookAt - forward × d,   d = height / sin(pitch)
+            float   sinPitch = Mathf.Sin(_pitch * Mathf.Deg2Rad);
+            float   d        = _height / sinPitch;
+            Vector3 lookAt   = BoardCentre - transform.up * _verticalViewOffset;
             transform.position = lookAt - transform.forward * d;
 
             // ── 3. Orthographic size ──────────────────────────────────────────
-            // Width  constraint: board half-width must fit in half the viewport width.
-            // Height constraint: board half-height + vertical offset must fit in half height.
-            float aspect        = (float)Screen.width / Screen.height;
-            float sizeForWidth  = (HalfWidthInScreen  + _padding) / aspect;
-            float sizeForHeight =  HalfHeightInScreen + _padding + _verticalViewOffset;
+            // Project every board corner onto the camera's right and up axes.
+            // The bounding box of those projections gives the exact world-unit
+            // extents the camera must show — no hardcoded constants needed.
+            float aspect  = (float)Screen.width / Screen.height;
+            Vector3 right = transform.right;
+            Vector3 up    = transform.up;
 
-            // Portrait  (~0.46 aspect, e.g. 1080×2340): sizeForWidth  ≈ 12.3 (binding)
-            // Landscape (~1.78 aspect, e.g. 1920×1080): sizeForHeight ≈  9.1 (binding)
+            float maxHalfWidth  = 0f;
+            float maxHalfHeight = 0f;
+
+            foreach (Vector3 corner in BoardCorners)
+            {
+                // Project relative to look-at so vertical offset is baked in.
+                Vector3 offset = corner - lookAt;
+                float sx = Mathf.Abs(Vector3.Dot(offset, right));
+                float sy = Vector3.Dot(offset, up);   // signed: we care about the top
+
+                maxHalfWidth  = Mathf.Max(maxHalfWidth,  sx);
+                maxHalfHeight = Mathf.Max(maxHalfHeight, sy);
+            }
+
+            // Width  constraint (binding in portrait  ~0.46): half-width ÷ aspect
+            // Height constraint (binding in landscape ~1.78): half-height + padding
+            float sizeForWidth  = (maxHalfWidth  + _padding) / aspect;
+            float sizeForHeight =  maxHalfHeight + _padding;
+
             _cam.orthographicSize = Mathf.Max(sizeForWidth, sizeForHeight);
         }
 
@@ -106,7 +124,6 @@ namespace Chess.Core
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            // Re-apply immediately when Inspector values are tweaked in the editor.
             _cam = GetComponent<Camera>();
             if (_cam != null) Apply();
         }

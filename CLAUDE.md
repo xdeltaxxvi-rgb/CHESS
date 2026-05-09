@@ -184,18 +184,16 @@ CHESS/                          ← Git repo root
 
 ### Camera
 - Managed by **`CameraController.cs`** (`[RequireComponent(Camera)]` on Main Camera). Added by `SceneSetup` editor tool.
-- **Orthographic only.** `cam.orthographic = true` is set in code — never switch to perspective.
-- **Fixed angle: pitch 50°, yaw 45°.** `transform.rotation = Quaternion.Euler(50, 45, 0)`. Do NOT use 30° pitch — it compresses the far rank, making it visually small and hard to click.
-- **Dynamic orthographic size** — computed each time `CameraController.Apply()` runs:
-  - Board projected half-width in screen space = 4.95 world units (7 × sin 45°, fixed for this angle).
-  - Board projected half-height from centre = 3.80 world units (fixed).
-  - `sizeForWidth  = (4.95 + padding) / aspect`  ← binding in portrait  (aspect ≈ 0.46)
-  - `sizeForHeight = 3.80 + padding + verticalViewOffset` ← binding in landscape (aspect ≈ 1.78)
+- **Visual reference: Clash Royale** — portrait isometric board occupying the upper ~70% of the screen, HUD at the bottom. All camera decisions follow this model.
+- **Orthographic only.** `cam.orthographic = true` — never switch to perspective.
+- **True isometric angle: pitch 35.264°, yaw 45°.** `transform.rotation = Quaternion.Euler(35.264, 45, 0)`. 35.264° = `arctan(1/√2)` — the mathematically pure isometric angle used by Clash Royale and all classic isometric games. Forward vector = (1/√3, −1/√3, 1/√3). Do NOT go below 30° — the far rank becomes visually compressed and hard to tap.
+- **Dynamic orthographic size** — board corners are projected onto the camera's right and up axes at runtime; the bounding box determines `orthoSize`. No hardcoded constants — works at any pitch/yaw.
+  - `sizeForWidth  = (maxHalfWidth  + padding) / aspect` ← binding in portrait  (aspect ≈ 0.46)
+  - `sizeForHeight =  maxHalfHeight + padding`            ← binding in landscape (aspect ≈ 1.78)
   - `orthographicSize = max(sizeForWidth, sizeForHeight)`
-  - Portrait 1080×2340 / 720×1560 (aspect ≈ 0.462): orthoSize ≈ 12.3
-  - Landscape 1920×1080 (aspect ≈ 1.78): orthoSize ≈ 9.1
-- **Position** — computed from a look-at point: `lookAt = BoardCentre(3.5,0,3.5) − cameraUp × verticalViewOffset`. Camera position = `lookAt − forward × d`, where `d = 18 / sin(50°) ≈ 23.5`.
-- **`_verticalViewOffset = 4.5`** — shifts the board toward the top of the screen, leaving the lower ~30% for the Phase-5 HUD. Tweak in the Inspector if needed.
+- **Position** — `lookAt = BoardCentre(3.5,0,3.5) − cameraUp × _verticalViewOffset`. Camera position = `lookAt − forward × d`, where `d = height / sin(pitch)`.
+- **`_verticalViewOffset = 3.5`** — shifts the board toward the top of the screen, leaving the lower ~30% for the Phase-5 HUD. Tunable in the Inspector without code changes.
+- All fields are `[SerializeField]` — pitch, yaw, height, padding, and verticalViewOffset can all be tweaked in the Inspector; `OnValidate` re-applies immediately.
 - Call `CameraController.Apply()` after screen-orientation changes (Phase 7 handles this automatically).
 - Do not use perspective cameras for the board scene.
 
