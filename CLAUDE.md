@@ -143,8 +143,9 @@ CHESS/                          ← Git repo root
 - Auto-save on: chapter complete, chapter start, app pause (`OnApplicationPause`).
 
 ### Camera
-- **Orthographic** camera. Position `(-22, 18, -22)`, rotation `(30°, 45°, 0°)`. This rotation's forward vector is (0.612, -0.5, 0.612), so the camera must be offset by (-22, 18, -22) to look at world origin (0, 0, 0) where the board sits.
-- Orthographic size is calculated at runtime from screen aspect ratio to keep the board in the upper ~70% of portrait screen.
+- **Orthographic** camera. Rotation `(50°, 45°, 0°)`, orthographic size `7`. Forward vector = (0.707, −0.542, 0.454), so position must be `(−23.5, 18, −15.1)` to look at world origin (0, 0, 0) where the board sits. **50° pitch** (not 30°) is required — 30° is too shallow, making the far half of the board visually compressed and unclickable in practice.
+- **Camera math rule**: for any Euler(pitchX, 45°, 0°) angle, position = (−d·sin45°, 18, −d·cos45°·cos pitchX) where d = 18 / sin pitchX. Change only pitchX if angle needs tuning; the formula keeps the camera pointed at origin.
+- Orthographic size is tuned for a landscape 8×8 board. Adjust for portrait/device aspect ratio in Phase 7.
 - Do not use perspective cameras for the board scene.
 
 ### Performance Targets

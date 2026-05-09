@@ -68,10 +68,11 @@ namespace Chess.Editor
             {
                 Camera cam = Camera.main;
                 cam.orthographic = true;
-                cam.orthographicSize = 6f;
-                // (-22, 18, -22) with (30°, 45°, 0°) looks exactly at world origin (0,0,0).
-                cam.transform.position = new Vector3(-22f, 18f, -22f);
-                cam.transform.rotation = Quaternion.Euler(30f, 45f, 0f);
+                cam.orthographicSize = 7f;
+                // Euler(50°,45°,0°) forward = (0.707, -0.542, 0.454).
+                // Camera must sit at (-23.5, 18, -15.1) so the ray hits world origin (0,0,0).
+                cam.transform.position = new Vector3(-23.5f, 18f, -15.1f);
+                cam.transform.rotation = Quaternion.Euler(50f, 45f, 0f);
                 EditorUtility.SetDirty(cam);
             }
 
