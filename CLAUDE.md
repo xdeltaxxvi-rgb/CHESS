@@ -52,10 +52,12 @@ CHESS/                          ← Git repo root
 │   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, PieceView.cs, King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
 │   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss
 │   │   │   ├── AI/
-│   │   │   │   ├── ChessAI.cs      ← IChessAI interface + minimax implementation
-│   │   │   │   ├── Evaluator.cs    ← Static board evaluator (material + piece-square tables)
-│   │   │   │   ├── PieceValues.cs  ← Centipawn constants: P=100 N=320 B=330 R=500 Q=900
-│   │   │   │   └── PieceSquareTables.cs ← 8×8 positional bonus arrays per piece type
+│   │   │   │   ├── ChessAI.cs           ← IChessAI interface + full negamax engine
+│   │   │   │   ├── Evaluator.cs         ← Material + PST + pawn structure + king safety + mobility + bishop pair
+│   │   │   │   ├── PieceValues.cs       ← Centipawn constants: P=100 N=320 B=330 R=500 Q=900
+│   │   │   │   ├── PieceSquareTables.cs ← 8×8 positional bonus arrays per piece type
+│   │   │   │   ├── ZobristTable.cs      ← Deterministic 64-bit hash per piece/color/square (seed 20260508)
+│   │   │   │   └── TranspositionTable.cs ← 32 MB flat-array TT; Exact/LowerBound/UpperBound TTFlag enum
 │   │   │   ├── Input/
 │   │   │   │   ├── TileSelector.cs ← Raycasting, tile/piece hit detection
 │   │   │   │   └── MoveSelector.cs ← Valid move highlighting, move execution
@@ -134,12 +136,13 @@ CHESS/                          ← Git repo root
   - Hard = depth 6, quiescence on — strong play, challenges intermediate players.
   - Stored in `SaveData`, loaded into `GameManager._aiDepth` on scene start.
 - **AI technique stack** (implemented across issues #28–#31):
-  - Evaluation: material (P=100 N=320 B=330 R=500 Q=900) + piece-square tables + pawn structure + king safety + mobility + bishop pair + endgame detection
-  - Search: negamax + iterative deepening + quiescence search
-  - Pruning: alpha-beta + null move pruning + late move reductions (LMR)
-  - Ordering: MVV-LVA captures first + killer move heuristic
-  - Caching: Zobrist-hashed transposition table
-  - Opening: hardcoded book (~20 lines, Medium/Hard only)
+  - **Evaluation** (#28 ✅): material (P=100 N=320 B=330 R=500 Q=900) + piece-square tables + endgame detection (non-pawn material < 1300cp)
+  - **Evaluation** (#30 ✅): pawn structure (doubled −20/extra, isolated −15, passed +25+8×rank) + king safety (pawn shield +8/pawn, middlegame only) + mobility (3cp × pseudo-legal move advantage) + bishop pair (+30)
+  - **Search** (#29 ✅): negamax + iterative deepening (depth 1→maxDepth) + quiescence search (captures until quiet)
+  - **Pruning** (#30 ✅): alpha-beta + null move pruning (R=2 shallow / R=3 depth≥6; skipped in check or endgame) + late move reductions (reduction=1 after move 3, reduction=2 after move 8; re-searches at full depth if score > alpha)
+  - **Ordering** (#29 ✅ + #30 ✅): TT best move first → MVV-LVA captures → killer moves (2 per ply) → quiet moves
+  - **Caching** (#30 ✅): Zobrist hashing (ZobristTable.cs, seed 20260508) + 32 MB transposition table (TranspositionTable.cs, always-replace, TTFlag: Exact / LowerBound / UpperBound)
+  - **Opening** (#31 pending): hardcoded book (~20 lines, Medium/Hard only)
 - AI computation runs on a **background thread** (C# `Task`). Main thread waits; "Thinking…" shown by HUDManager (Phase 5).
 - AI must **never** return an illegal move. If no moves available, return null — GameManager handles checkmate/stalemate.
 - Do **not** use Stockfish or any external process/binary — iOS bans child processes; Android requires impractical JNI native plugin.
@@ -203,7 +206,7 @@ CHESS/                          ← Git repo root
 | **9 — Monetization & Analytics** | Unity IAP, Firebase, chapter unlock flow | 2026-10-22 |
 | **10 — Launch** | Store listings, release builds, beta, submission | 2026-11-05 |
 
-**Current phase: Phase 1 — Chess Engine Core**
+**Current phase: Phase 2 — AI Opponent**
 
 All 89 tasks are tracked as GitHub Issues at: https://github.com/xdeltaxxvi-rgb/CHESS/issues
 Project board: https://github.com/users/xdeltaxxvi-rgb/projects/1

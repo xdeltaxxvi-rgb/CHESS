@@ -17,27 +17,42 @@ namespace Chess.AI
     }
 
     /// <summary>
-    /// Chess AI using negamax with iterative deepening and quiescence search.
+    /// Chess AI using negamax with:
+    ///   - Iterative deepening
+    ///   - Alpha-beta pruning
+    ///   - Transposition table (Zobrist hashing, 32 MB)
+    ///   - Killer moves (2 per ply)
+    ///   - Null move pruning (R = 2 or 3, skipped in endgame / check)
+    ///   - Late Move Reductions (quiet, non-killer moves beyond move 3)
+    ///   - Quiescence search (captures until quiet — prevents horizon effect)
+    ///   - Move ordering: TT move → MVV captures → killers → quiet moves
+    ///
     /// Called from a background thread by GameManager — all board work is done
     /// on a cloned copy so the main thread's board is never touched.
     /// </summary>
     public class ChessAI : IChessAI
     {
-        private const int Infinity     =  1_000_000;
-        private const int MateScore    =    900_000; // Returned when no legal moves exist.
+        private const int Infinity  = 1_000_000;
+        private const int MateScore =   900_000;
+        private const int MaxPly    = 64; // Killer table depth limit
+
+        private readonly TranspositionTable _tt      = new TranspositionTable(32);
+        private readonly Move?[,]           _killers = new Move?[MaxPly, 2];
 
         // ----- Public entry point ------------------------------------------------
 
         public Move? GetBestMove(Square[,] board, PieceColor color, int maxDepth)
         {
-            // Clone board so the search never touches the live game state.
             Square[,] clone = CloneBoard(board);
+
+            // Reset search state between calls.
+            _tt.Clear();
+            System.Array.Clear(_killers, 0, _killers.Length);
 
             Move? bestMove = null;
 
-            // Iterative deepening: search depth 1 → maxDepth.
-            // Always returns the best move found so far, so a timeout mid-search
-            // still produces a valid (shallower) result.
+            // Iterative deepening: always have a valid result even if deeper search
+            // is slow. Each iteration benefits from TT / killer moves of the previous.
             for (int depth = 1; depth <= maxDepth; depth++)
             {
                 Move? candidate = SearchRoot(clone, color, depth);
@@ -56,14 +71,16 @@ namespace Chess.AI
             int beta  =  Infinity;
             Move? bestMove = null;
 
-            List<Move> moves = GenerateOrderedMoves(board, color);
+            ulong hash   = ZobristTable.ComputeHash(board, color);
+            Move? ttMove = _tt.GetBestMove(hash);
+
+            List<Move> moves = GenerateOrderedMoves(board, color, 0, ttMove);
             if (moves.Count == 0) return null;
 
             foreach (Move move in moves)
             {
-                Square[,] next = ApplyMove(board, move);
-                PieceColor opponent = Opponent(color);
-                int score = -Negamax(next, opponent, depth - 1, -beta, -alpha);
+                Square[,] next  = ApplyMove(board, move);
+                int score = -Negamax(next, Opponent(color), depth - 1, -beta, -alpha, ply: 1);
 
                 if (score > alpha)
                 {
@@ -72,38 +89,106 @@ namespace Chess.AI
                 }
             }
 
+            _tt.Store(hash, depth, alpha, TTFlag.Exact, bestMove);
             return bestMove;
         }
 
         // ----- Negamax -----------------------------------------------------------
 
-        private int Negamax(Square[,] board, PieceColor color, int depth, int alpha, int beta)
+        private int Negamax(Square[,] board, PieceColor color, int depth,
+                            int alpha, int beta, int ply)
         {
+            // ----- Transposition table lookup ------------------------------------
+            ulong hash = ZobristTable.ComputeHash(board, color);
+            if (_tt.TryGet(hash, depth, alpha, beta, out int ttScore, out Move? ttMove))
+                return ttScore;
+
+            // ----- Leaf node -----------------------------------------------------
             if (depth == 0)
                 return QuiescenceSearch(board, color, alpha, beta);
 
-            List<Move> moves = GenerateOrderedMoves(board, color);
+            bool inCheck = MoveValidator.IsKingInCheck(board, color);
+
+            // ----- Null move pruning ---------------------------------------------
+            // Skip if: in check, shallow depth, or endgame (zugzwang risk).
+            if (!inCheck && depth >= 3 && !IsEndgame(board))
+            {
+                int R = depth >= 6 ? 3 : 2;
+
+                Square[,] nullBoard = CloneBoard(board);
+                ClearEnPassant(nullBoard); // Pass turn, keep board same
+
+                int nullScore = -Negamax(nullBoard, Opponent(color),
+                                         depth - 1 - R, -beta, -beta + 1, ply + 1);
+
+                if (nullScore >= beta)
+                {
+                    _tt.Store(hash, depth, beta, TTFlag.LowerBound, null);
+                    return beta;
+                }
+            }
+
+            // ----- Move loop -----------------------------------------------------
+            List<Move> moves = GenerateOrderedMoves(board, color, ply, ttMove);
 
             if (moves.Count == 0)
             {
                 // No legal moves: checkmate or stalemate.
-                if (MoveValidator.IsKingInCheck(board, color))
-                    return -(MateScore + depth); // Prefer faster mates.
-                return 0; // Stalemate.
+                if (inCheck) return -(MateScore + depth); // Prefer faster mates
+                return 0;                                  // Stalemate
             }
+
+            int   originalAlpha = alpha;
+            Move? bestMove      = null;
+            int   moveCount     = 0;
 
             foreach (Move move in moves)
             {
                 Square[,] next = ApplyMove(board, move);
-                int score = -Negamax(next, Opponent(color), depth - 1, -beta, -alpha);
 
+                bool isCapture = board[move.To.x, move.To.y].IsOccupied ||
+                                 board[move.To.x, move.To.y].IsEnPassantTarget;
+                bool isKiller  = IsKillerMove(move, ply);
+
+                int score;
+                moveCount++;
+
+                // ----- Late Move Reductions (LMR) --------------------------------
+                // Reduce depth for quiet, non-killer moves after the first 3.
+                bool doLMR = !inCheck && !isCapture && !isKiller && moveCount > 3 && depth >= 3;
+
+                if (doLMR)
+                {
+                    int reduction = moveCount > 8 ? 2 : 1;
+                    score = -Negamax(next, Opponent(color),
+                                     depth - 1 - reduction, -beta, -alpha, ply + 1);
+                    // Re-search at full depth if the reduced search improves alpha.
+                    if (score > alpha)
+                        score = -Negamax(next, Opponent(color), depth - 1, -beta, -alpha, ply + 1);
+                }
+                else
+                {
+                    score = -Negamax(next, Opponent(color), depth - 1, -beta, -alpha, ply + 1);
+                }
+
+                // ----- Beta cutoff -----------------------------------------------
                 if (score >= beta)
-                    return beta; // Beta cutoff — opponent won't allow this.
+                {
+                    if (!isCapture)
+                        StoreKiller(move, ply); // Only quiet moves are useful killers
+                    _tt.Store(hash, depth, beta, TTFlag.LowerBound, move);
+                    return beta;
+                }
 
                 if (score > alpha)
-                    alpha = score;
+                {
+                    alpha    = score;
+                    bestMove = move;
+                }
             }
 
+            TTFlag flag = alpha > originalAlpha ? TTFlag.Exact : TTFlag.UpperBound;
+            _tt.Store(hash, depth, alpha, flag, bestMove);
             return alpha;
         }
 
@@ -132,11 +217,40 @@ namespace Chess.AI
             return alpha;
         }
 
+        // ----- Killer moves ------------------------------------------------------
+
+        private bool IsKillerMove(Move move, int ply)
+        {
+            if (ply >= MaxPly) return false;
+            return (_killers[ply, 0].HasValue &&
+                    _killers[ply, 0].Value.From == move.From &&
+                    _killers[ply, 0].Value.To   == move.To)
+                || (_killers[ply, 1].HasValue &&
+                    _killers[ply, 1].Value.From == move.From &&
+                    _killers[ply, 1].Value.To   == move.To);
+        }
+
+        private void StoreKiller(Move move, int ply)
+        {
+            if (ply >= MaxPly) return;
+            // Don't store duplicate of slot 0.
+            if (_killers[ply, 0].HasValue &&
+                _killers[ply, 0].Value.From == move.From &&
+                _killers[ply, 0].Value.To   == move.To)
+                return;
+
+            _killers[ply, 1] = _killers[ply, 0]; // Shift older killer down
+            _killers[ply, 0] = move;
+        }
+
         // ----- Move generation ---------------------------------------------------
 
-        private List<Move> GenerateOrderedMoves(Square[,] board, PieceColor color)
+        private List<Move> GenerateOrderedMoves(Square[,] board, PieceColor color,
+                                                int ply, Move? ttMove)
         {
+            var ttMoves  = new List<Move>();
             var captures = new List<Move>();
+            var killers  = new List<Move>();
             var quiets   = new List<Move>();
 
             for (int f = 0; f < BoardConstants.Size; f++)
@@ -150,20 +264,42 @@ namespace Chess.AI
 
                     foreach (Vector2Int to in legal)
                     {
-                        var move = new Move(from, to);
-                        if (board[to.x, to.y].IsOccupied || board[to.x, to.y].IsEnPassantTarget)
+                        var move      = new Move(from, to);
+                        bool isCapture = board[to.x, to.y].IsOccupied ||
+                                         board[to.x, to.y].IsEnPassantTarget;
+
+                        if (ttMove.HasValue &&
+                            ttMove.Value.From == from &&
+                            ttMove.Value.To   == to)
+                        {
+                            ttMoves.Add(move); // TT move gets top priority
+                        }
+                        else if (isCapture)
+                        {
                             captures.Add(move);
+                        }
+                        else if (ply < MaxPly && IsKillerMove(move, ply))
+                        {
+                            killers.Add(move);
+                        }
                         else
+                        {
                             quiets.Add(move);
+                        }
                     }
                 }
 
-            // Simple MVV ordering: sort captures by victim value descending.
+            // MVV-LVA: sort captures by victim value descending (captures most valuable first).
             captures.Sort((a, b) =>
                 VictimValue(board, b.To) - VictimValue(board, a.To));
 
-            captures.AddRange(quiets);
-            return captures;
+            var result = new List<Move>(
+                ttMoves.Count + captures.Count + killers.Count + quiets.Count);
+            result.AddRange(ttMoves);
+            result.AddRange(captures);
+            result.AddRange(killers);
+            result.AddRange(quiets);
+            return result;
         }
 
         private List<Move> GenerateCapturesOrdered(Square[,] board, PieceColor color)
@@ -197,6 +333,37 @@ namespace Chess.AI
         }
 
         // ----- Board helpers -----------------------------------------------------
+
+        private static bool IsEndgame(Square[,] board)
+        {
+            int whiteMajors = 0, blackMajors = 0;
+            for (int f = 0; f < BoardConstants.Size; f++)
+                for (int r = 0; r < BoardConstants.Size; r++)
+                {
+                    Square sq = board[f, r];
+                    if (!sq.IsOccupied ||
+                        sq.Piece.Type == PieceType.Pawn ||
+                        sq.Piece.Type == PieceType.King) continue;
+
+                    if (sq.Piece.Color == PieceColor.White)
+                        whiteMajors += PieceValues.Of(sq.Piece.Type);
+                    else
+                        blackMajors += PieceValues.Of(sq.Piece.Type);
+                }
+            return whiteMajors < 1300 || blackMajors < 1300;
+        }
+
+        private static void ClearEnPassant(Square[,] board)
+        {
+            for (int f = 0; f < BoardConstants.Size; f++)
+                for (int r = 0; r < BoardConstants.Size; r++)
+                    if (board[f, r].IsEnPassantTarget)
+                    {
+                        var sq = board[f, r];
+                        sq.IsEnPassantTarget = false;
+                        board[f, r] = sq;
+                    }
+        }
 
         private static Square[,] CloneBoard(Square[,] src)
         {
@@ -253,12 +420,12 @@ namespace Chess.AI
             int fileDelta = tx - fx;
             if (piece.Type == PieceType.King && (fileDelta == 2 || fileDelta == -2))
             {
-                bool kingside    = fileDelta > 0;
-                int  rookFromF   = kingside ? BoardConstants.Size - 1 : 0;
-                int  rookToF     = kingside ? tx - 1 : tx + 1;
-                Piece rook       = next[rookFromF, fy].Piece;
-                var   rFrom      = next[rookFromF, fy]; rFrom.Piece = null;  next[rookFromF, fy] = rFrom;
-                var   rTo        = next[rookToF,   fy]; rTo.Piece   = rook;  next[rookToF,   fy] = rTo;
+                bool kingside  = fileDelta > 0;
+                int  rookFromF = kingside ? BoardConstants.Size - 1 : 0;
+                int  rookToF   = kingside ? tx - 1 : tx + 1;
+                Piece rook     = next[rookFromF, fy].Piece;
+                var   rFrom    = next[rookFromF, fy]; rFrom.Piece = null; next[rookFromF, fy] = rFrom;
+                var   rTo      = next[rookToF,   fy]; rTo.Piece   = rook; next[rookToF,   fy] = rTo;
                 if (rook != null) { rook.Position = new Vector2Int(rookToF, fy); rook.HasMoved = true; }
             }
 
