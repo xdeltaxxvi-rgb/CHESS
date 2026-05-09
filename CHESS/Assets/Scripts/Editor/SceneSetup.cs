@@ -64,20 +64,14 @@ namespace Chess.Editor
             soGM.ApplyModifiedProperties();
 
             // ── Camera ───────────────────────────────────────────────────
+            // CameraController computes orthographic size and position at
+            // runtime based on the screen aspect ratio (portrait-first).
+            // Its OnValidate fires immediately on component add, so the
+            // camera is correctly positioned as soon as this runs.
             if (Camera.main != null)
             {
-                Camera cam = Camera.main;
-                cam.orthographic = true;
-                cam.orthographicSize = 7f;
-                // Euler(pitchX, 45°, 0°) formula:
-                //   forward = (cos_p·sin45°,  -sin_p,  cos_p·cos45°)
-                //   d       = 18 / sin_p
-                //   cx = cz = -d · cos_p · sin45°  (always equal for 45° yaw)
-                // For pitch=50°: sin50=0.766, cos50=0.643
-                //   d=23.5, cx=cz=-23.5·0.643·0.707=-10.7
-                cam.transform.position = new Vector3(-10.7f, 18f, -10.7f);
-                cam.transform.rotation = Quaternion.Euler(50f, 45f, 0f);
-                EditorUtility.SetDirty(cam);
+                AddOrGet<CameraController>(Camera.main.gameObject);
+                EditorUtility.SetDirty(Camera.main.gameObject);
             }
 
             // ── Save ─────────────────────────────────────────────────────

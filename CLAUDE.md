@@ -52,7 +52,8 @@ CHESS/                          ← Git repo root
 │   │   │   │   │                      Move.cs, MoveValidator.cs, Square.cs, SquareColor.cs
 │   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, PieceView.cs,
 │   │   │   │   │                      King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
-│   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss, difficulty wiring
+│   │   │   │   ├── GameManager.cs       ← Central authority: turn system, game state, win/loss, difficulty wiring
+│   │   │   │   └── CameraController.cs  ← Orthographic portrait camera; dynamic orthoSize from aspect ratio
 │   │   │   ├── AI/
 │   │   │   │   ├── ChessAI.cs            ← IChessAI interface + full negamax engine
 │   │   │   │   ├── Evaluator.cs          ← Material + PST + pawn structure + king safety + mobility + bishop pair
@@ -182,9 +183,20 @@ CHESS/                          ← Git repo root
 - Auto-save on: chapter complete, chapter start, app pause (`OnApplicationPause`).
 
 ### Camera
-- **Orthographic** camera. Rotation `(50°, 45°, 0°)`, orthographic size `7`. Position `(−10.7, 18, −10.7)` to look at world origin where the board sits. **50° pitch** (not 30°) is required — 30° is too shallow, making the far half of the board visually compressed and unclickable in practice.
-- **Camera math rule for Euler(p, 45°, 0°)** — Unity applies Q = Qy·Qx, so forward = Qy(45°)·Qx(p)·(0,0,1) = (cos_p·0.707, −sin_p, cos_p·0.707). Position: d = 18/sin_p, cx = cz = −d·cos_p·0.707. For 45° yaw cx always equals cz. Example values: p=30° → pos(−22,18,−22); p=45° → pos(−12.7,18,−12.7); p=50° → pos(−10.7,18,−10.7); p=60° → pos(−7.4,18,−7.4).
-- Orthographic size is tuned for a landscape 8×8 board. Adjust for portrait/device aspect ratio in Phase 7.
+- Managed by **`CameraController.cs`** (`[RequireComponent(Camera)]` on Main Camera). Added by `SceneSetup` editor tool.
+- **Orthographic only.** `cam.orthographic = true` is set in code — never switch to perspective.
+- **Fixed angle: pitch 50°, yaw 45°.** `transform.rotation = Quaternion.Euler(50, 45, 0)`. Do NOT use 30° pitch — it compresses the far rank, making it visually small and hard to click.
+- **Dynamic orthographic size** — computed each time `CameraController.Apply()` runs:
+  - Board projected half-width in screen space = 4.95 world units (7 × sin 45°, fixed for this angle).
+  - Board projected half-height from centre = 3.80 world units (fixed).
+  - `sizeForWidth  = (4.95 + padding) / aspect`  ← binding in portrait  (aspect ≈ 0.46)
+  - `sizeForHeight = 3.80 + padding + verticalViewOffset` ← binding in landscape (aspect ≈ 1.78)
+  - `orthographicSize = max(sizeForWidth, sizeForHeight)`
+  - Portrait 1080×2340 / 720×1560 (aspect ≈ 0.462): orthoSize ≈ 12.3
+  - Landscape 1920×1080 (aspect ≈ 1.78): orthoSize ≈ 9.1
+- **Position** — computed from a look-at point: `lookAt = BoardCentre(3.5,0,3.5) − cameraUp × verticalViewOffset`. Camera position = `lookAt − forward × d`, where `d = 18 / sin(50°) ≈ 23.5`.
+- **`_verticalViewOffset = 4.5`** — shifts the board toward the top of the screen, leaving the lower ~30% for the Phase-5 HUD. Tweak in the Inspector if needed.
+- Call `CameraController.Apply()` after screen-orientation changes (Phase 7 handles this automatically).
 - Do not use perspective cameras for the board scene.
 
 ### Performance Targets
@@ -241,7 +253,7 @@ CHESS/                          ← Git repo root
 - **Namespaces:** `Chess.Core`, `Chess.AI`, `Chess.Input`, `Chess.Story`, `Chess.UI`, `Chess.Save`
 - **Naming:** PascalCase for classes/methods/properties. camelCase for local vars and private fields (`_camelCase` prefix for private instance fields).
 - **No MonoBehaviour on data classes.** `Square`, `Piece` and its subclasses, `SaveData`, `Move` — these are plain C# objects.
-- **MonoBehaviours** are only for: `BoardManager`, `BoardVisualizer`, `PieceView`, `GameManager`, `TileSelector`, `MoveSelector`, `NarrativeController`, `HUDManager`, `SaveManager`, `AudioManager`.
+- **MonoBehaviours** are only for: `BoardManager`, `BoardVisualizer`, `PieceView`, `GameManager`, `CameraController`, `TileSelector`, `MoveSelector`, `NarrativeController`, `HUDManager`, `SaveManager`, `AudioManager`.
 - **No singletons** except `GameManager`, `SaveManager`, `AudioManager` — accessed via static `Instance` property with lazy init.
 - **No magic numbers.** Board size = `BoardConstants.Size` (8). Piece values = constants in `PieceValues`.
 - **Comments:** Only when the WHY is non-obvious. No explaining what the code does.
