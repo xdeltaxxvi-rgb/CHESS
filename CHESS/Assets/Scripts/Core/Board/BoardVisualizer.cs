@@ -91,6 +91,9 @@ namespace Chess.Core.Board
             _pieceViews.Remove(from);
             _pieceViews[to] = view;
             view.transform.localPosition = TilePosition(to.x, to.y, _tileSize * 0.5f);
+            // Keep name in sync so TileSelector can parse the position after the piece moves.
+            Piece p = view.Data;
+            view.gameObject.name = $"{p.Color}_{p.Type}_{(char)('A' + to.x)}{to.y + 1}";
         }
 
         public void RemovePieceView(Vector2Int at)
