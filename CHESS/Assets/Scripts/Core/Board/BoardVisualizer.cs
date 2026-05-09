@@ -86,6 +86,8 @@ namespace Chess.Core.Board
         public void MovePieceView(Vector2Int from, Vector2Int to)
         {
             if (!_pieceViews.TryGetValue(from, out PieceView view)) return;
+            // Destroy any piece already at the destination (regular capture).
+            RemovePieceView(to);
             _pieceViews.Remove(from);
             _pieceViews[to] = view;
             view.transform.localPosition = TilePosition(to.x, to.y, _tileSize * 0.5f);
