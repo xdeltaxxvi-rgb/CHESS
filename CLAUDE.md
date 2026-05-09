@@ -184,15 +184,18 @@ CHESS/                          ← Git repo root
 
 ### Camera
 - Managed by **`CameraController.cs`** (`[RequireComponent(Camera)]` on Main Camera). Added by `SceneSetup` editor tool.
-- **Visual reference: Clash Royale** — portrait isometric board occupying the upper ~70% of the screen, HUD at the bottom. All camera decisions follow this model.
+- **Visual reference: Clash Royale** — portrait board occupying the upper ~70% of the screen, HUD at the bottom. All camera decisions follow this model.
 - **Orthographic only.** `cam.orthographic = true` — never switch to perspective.
-- **True isometric angle: pitch 35.264°, yaw 45°.** `transform.rotation = Quaternion.Euler(35.264, 45, 0)`. 35.264° = `arctan(1/√2)` — the mathematically pure isometric angle used by Clash Royale and all classic isometric games. Forward vector = (1/√3, −1/√3, 1/√3). Do NOT go below 30° — the far rank becomes visually compressed and hard to tap.
-- **Dynamic orthographic size** — board corners are projected onto the camera's right and up axes at runtime; the bounding box determines `orthoSize`. No hardcoded constants — works at any pitch/yaw.
+- **Camera angles — Clash Royale portrait style:**
+  - `_pitch = 55°` — steeper than true isometric (35.264°). Board appears taller, all ranks clearly readable, pieces look natural from above.
+  - `_yaw = 0°` — board faces the player straight-on. The 8×8 grid maps to a rectangle in screen space, filling portrait width naturally. Do NOT use yaw=45° for portrait — it creates a diamond shape that wastes ~40% of screen width and makes the board tiny.
+  - `_padding = 0.3` — tight crop; the board fills the screen edge-to-edge.
+  - `_verticalViewOffset = 2.0` — shifts the board slightly up to leave room for the Phase-5 HUD at the bottom.
+- **Dynamic orthographic size** — board corners are projected onto the camera's right and up axes at runtime; the bounding box determines `orthoSize`. No hardcoded constants — works at any pitch/yaw/screen resolution.
   - `sizeForWidth  = (maxHalfWidth  + padding) / aspect` ← binding in portrait  (aspect ≈ 0.46)
   - `sizeForHeight =  maxHalfHeight + padding`            ← binding in landscape (aspect ≈ 1.78)
   - `orthographicSize = max(sizeForWidth, sizeForHeight)`
 - **Position** — `lookAt = BoardCentre(3.5,0,3.5) − cameraUp × _verticalViewOffset`. Camera position = `lookAt − forward × d`, where `d = height / sin(pitch)`.
-- **`_verticalViewOffset = 3.5`** — shifts the board toward the top of the screen, leaving the lower ~30% for the Phase-5 HUD. Tunable in the Inspector without code changes.
 - All fields are `[SerializeField]` — pitch, yaw, height, padding, and verticalViewOffset can all be tweaked in the Inspector; `OnValidate` re-applies immediately.
 - Call `CameraController.Apply()` after screen-orientation changes (Phase 7 handles this automatically).
 - Do not use perspective cameras for the board scene.

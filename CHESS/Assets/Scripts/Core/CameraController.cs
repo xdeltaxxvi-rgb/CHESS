@@ -20,23 +20,28 @@ namespace Chess.Core
     {
         // ── Inspector ─────────────────────────────────────────────────────────
 
-        [Tooltip("Camera pitch in degrees. 35.264° = true isometric (arctan 1/√2). " +
-                 "Do not go below 30° — the far rank becomes hard to read and tap.")]
-        [SerializeField] private float _pitch = 35.264f;
+        [Tooltip("Camera pitch in degrees.\n" +
+                 "55° = Clash Royale portrait style — board faces the player, ranks are\n" +
+                 "clearly readable, fills portrait width as a rectangle (not a diamond).\n" +
+                 "35.264° = true isometric (arctan 1/√2) — diagonal view, board appears\n" +
+                 "as a rotated square. Do not go below 30°.")]
+        [SerializeField] private float _pitch = 55f;
 
-        [Tooltip("Camera yaw in degrees. 45° = diagonal isometric (Clash Royale style).")]
-        [SerializeField] private float _yaw = 45f;
+        [Tooltip("Camera yaw in degrees.\n" +
+                 "0° = board faces player straight-on (Clash Royale style, rectangle fills\n" +
+                 "portrait width). 45° = diagonal isometric (board appears as a diamond).")]
+        [SerializeField] private float _yaw = 0f;
 
         [Tooltip("World units the camera sits above the look-at plane.")]
         [SerializeField] private float _height = 18f;
 
         [Tooltip("World-unit padding added around the board when computing orthographic size.")]
-        [SerializeField] private float _padding = 1.0f;
+        [SerializeField] private float _padding = 0.3f;
 
         [Tooltip("Shifts the look-at point below board centre (in camera-up space), " +
                  "pushing the board toward the top of the screen. " +
                  "Increase to raise the board, decrease to lower it.")]
-        [SerializeField] private float _verticalViewOffset = 3.5f;
+        [SerializeField] private float _verticalViewOffset = 2.0f;
 
         // ── Fixed geometry ────────────────────────────────────────────────────
 
