@@ -48,9 +48,11 @@ CHESS/                          ← Git repo root
 │   ├── Assets/
 │   │   ├── Scripts/
 │   │   │   ├── Core/
-│   │   │   │   ├── Board/          ← AttackChecker.cs, BoardManager.cs, BoardConstants.cs, BoardVisualizer.cs, Move.cs, Square.cs, SquareColor.cs
-│   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, PieceView.cs, King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
-│   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss
+│   │   │   │   ├── Board/          ← AttackChecker.cs, BoardConstants.cs, BoardManager.cs, BoardVisualizer.cs,
+│   │   │   │   │                      Move.cs, MoveValidator.cs, Square.cs, SquareColor.cs
+│   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, PieceView.cs,
+│   │   │   │   │                      King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
+│   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss, difficulty wiring
 │   │   │   ├── AI/
 │   │   │   │   ├── ChessAI.cs            ← IChessAI interface + full negamax engine
 │   │   │   │   ├── Evaluator.cs          ← Material + PST + pawn structure + king safety + mobility + bishop pair
@@ -62,20 +64,23 @@ CHESS/                          ← Git repo root
 │   │   │   │   └── OpeningBook.cs        ← ~25-entry coordinate-notation book; keyed by comma-sep move history
 │   │   │   ├── Input/
 │   │   │   │   ├── TileSelector.cs ← Raycasting, tile/piece hit detection
-│   │   │   │   └── MoveSelector.cs ← Valid move highlighting, move execution
-│   │   │   ├── Story/
+│   │   │   │   └── MoveSelector.cs ← Valid move highlighting, move execution; fires OnMoveExecutedDetailed(from,to)
+│   │   │   ├── Editor/             ← Editor-only scripts (stripped from builds automatically by Unity)
+│   │   │   │   └── SceneSetup.cs   ← One-time scene bootstrap tool (camera, board, lighting)
+│   │   │   ├── Story/              ← Phase 4 (not yet created)
 │   │   │   │   └── NarrativeController.cs ← Story state, Yarn triggers, faction swaps
-│   │   │   ├── UI/
+│   │   │   ├── UI/                 ← Phase 5 (not yet created)
 │   │   │   │   └── HUDManager.cs   ← In-game HUD, menus, dialogue overlay
-│   │   │   └── Save/
-│   │   │       └── SaveManager.cs  ← Serialise/deserialise game progress to JSON
+│   │   │   └── Save/               ← Phase 5 (not yet created)
+│   │   │       └── SaveManager.cs  ← Serialise/deserialise game progress to JSON; will absorb PlayerPrefs "Difficulty"
 │   │   ├── Prefabs/
 │   │   │   ├── Pieces/             ← One prefab per piece type per faction
 │   │   │   └── UI/
 │   │   ├── Scenes/
-│   │   │   ├── MainMenu.unity
-│   │   │   ├── ChapterSelect.unity
-│   │   │   └── Game.unity          ← Single game scene; faction/chapter loaded at runtime
+│   │   │   ├── SampleScene.unity   ← Current Phase 1–2 prototype scene (renamed to Game.unity in Phase 3)
+│   │   │   ├── MainMenu.unity      ← Phase 5
+│   │   │   ├── ChapterSelect.unity ← Phase 5
+│   │   │   └── Game.unity          ← Phase 3 rename target; single game scene, faction/chapter at runtime
 │   │   ├── Art/
 │   │   │   ├── Models/             ← FBX files, organised by faction
 │   │   │   ├── Materials/          ← One material per faction team
@@ -152,6 +157,10 @@ CHESS/                          ← Git repo root
 - **`IChessAI.GetBestMove` signature**: `Move? GetBestMove(Square[,] board, PieceColor color, int depth, bool useQuiescence, string moveSequenceKey)`. The `moveSequenceKey` is the comma-joined move history before the AI's current turn; pass `string.Empty` when opening book is disabled (Easy).
 - **`MoveSelector.OnMoveExecutedDetailed`**: `event Action<Vector2Int, Vector2Int>` — fired alongside `OnMoveExecuted` with from/to coordinates. GameManager subscribes to build the move history string for opening book lookups.
 - Do **not** use Stockfish or any external process/binary — iOS bans child processes; Android requires impractical JNI native plugin.
+- **`ChessAI._useQuiescence` is a single-writer instance field** — safe because `GameManager` never overlaps AI calls (it disables `MoveSelector` before `Task.Run` and only re-enables it after `await` returns). If concurrent calls are ever introduced, this field must become a parameter.
+- **Opening book uses 4-char coordinate notation only** — e.g. `"e2e4"`, NOT algebraic `"e4"` or `"Nf3"`. `OpeningBook.MoveToKey(Move)` is the single place that generates keys; call it for every move in GameManager.
+- **`Array.Clear` on `Move?[MaxPly, 2]`** — works by treating the 2D array as a flat sequence (`_killers.Length = MaxPly * 2`). Sets all slots to `null` (Nullable default). No special handling needed.
+- **`MoveSelector.OnMoveExecutedDetailed` fires before `OnMoveExecuted`** — in `ExecuteMove`, the order is: detailed event first, then the plain event. GameManager's `AppendMoveHistory` therefore runs before `SwitchTurn`. This is intentional: the history is complete (including the triggering move) by the time `SwitchTurn` reads it.
 
 ### Story & Factions
 - `NarrativeController` reads the current chapter from `SaveManager` and:
