@@ -48,7 +48,7 @@ CHESS/                          ← Git repo root
 │   ├── Assets/
 │   │   ├── Scripts/
 │   │   │   ├── Core/
-│   │   │   │   ├── Board/          ← AttackChecker.cs, BoardManager.cs, BoardConstants.cs, BoardVisualizer.cs, Square.cs, SquareColor.cs
+│   │   │   │   ├── Board/          ← AttackChecker.cs, BoardManager.cs, BoardConstants.cs, BoardVisualizer.cs, Move.cs, Square.cs, SquareColor.cs
 │   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, PieceView.cs, King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
 │   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss
 │   │   │   ├── AI/

@@ -1,8 +1,10 @@
 using System;
+using System.Threading.Tasks;
 using UnityEngine;
 using Chess.Core.Board;
 using Chess.Core.Pieces;
 using Chess.Input;
+using Chess.AI;
 
 namespace Chess.Core
 {
@@ -13,6 +15,10 @@ namespace Chess.Core
         [SerializeField] private MoveSelector _moveSelector;
         [SerializeField] private BoardManager _boardManager;
         [SerializeField] private BoardVisualizer _boardVisualizer;
+        // Ch1→depth 2, Ch2-3→3, Ch4-5→4, Ch6-7→5, Ch8→6 (set by NarrativeController later).
+        [SerializeField] private int _aiDepth = 2;
+
+        private readonly IChessAI _ai = new ChessAI();
 
         public PieceColor CurrentTurn { get; private set; } = PieceColor.White;
         public bool IsInCheck { get; private set; }
@@ -68,6 +74,31 @@ namespace Chess.Core
 
             OnTurnChanged?.Invoke(CurrentTurn);
             OnCheckChanged?.Invoke(IsInCheck);
+
+            if (CurrentTurn == PieceColor.Black)
+                StartAITurn();
+        }
+
+        private async void StartAITurn()
+        {
+            _moveSelector.enabled = false;
+
+            Square[,] board = _boardManager.GetBoard();
+            int depth = _aiDepth;
+            PieceColor color = CurrentTurn;
+
+            Move? move = await Task.Run(() => _ai.GetBestMove(board, color, depth));
+
+            // Game may have ended while the AI was computing (shouldn't happen with
+            // the stub, but guards against future long searches).
+            if (IsGameOver) return;
+
+            if (move.HasValue)
+                _moveSelector.SubmitMove(move.Value.From, move.Value.To);
+
+            // Re-enable player input only if the AI move didn't end the game.
+            if (!IsGameOver)
+                _moveSelector.enabled = true;
         }
 
         private void ShowCheckVisual(Square[,] board, PieceColor color)

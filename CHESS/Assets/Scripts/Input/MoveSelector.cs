@@ -125,5 +125,9 @@ namespace Chess.Input
         }
 
         public PieceView SelectedView => _selectedView;
+
+        // Called by GameManager to execute the AI's chosen move directly,
+        // bypassing click input.
+        public void SubmitMove(Vector2Int from, Vector2Int to) => ExecuteMove(from, to);
     }
 }
