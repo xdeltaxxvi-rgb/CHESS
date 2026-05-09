@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using Chess.Core.Board;
@@ -38,7 +39,12 @@ namespace Chess.Core
         // winner == null → stalemate (draw); winner != null → that color won.
         public event Action<PieceColor?> OnGameOver;
 
-        private PieceView _checkedKingView;
+        private PieceView        _checkedKingView;
+        private List<PieceView>  _attackerViews = new List<PieceView>();
+
+        // Tint colours: king = red, attacker(s) = orange.
+        private static readonly Color KingInCheckTint   = Color.red;
+        private static readonly Color AttackerTint      = new Color(1f, 0.45f, 0f);
 
         // -------------------------------------------------------------------------
 
@@ -107,6 +113,12 @@ namespace Chess.Core
                 PieceColor? winner = IsInCheck
                     ? (CurrentTurn == PieceColor.White ? PieceColor.Black : PieceColor.White)
                     : (PieceColor?)null;
+
+                if (winner.HasValue)
+                    Debug.Log($"[GameManager] Checkmate! {winner.Value} wins.");
+                else
+                    Debug.Log("[GameManager] Stalemate — Draw.");
+
                 OnGameOver?.Invoke(winner);
                 return;
             }
@@ -159,6 +171,7 @@ namespace Chess.Core
 
         private void ShowCheckVisual(Square[,] board, PieceColor color)
         {
+            // Tint the checked king red.
             for (int f = 0; f < BoardConstants.Size; f++)
                 for (int r = 0; r < BoardConstants.Size; r++)
                     if (board[f, r].IsOccupied &&
@@ -166,7 +179,19 @@ namespace Chess.Core
                         board[f, r].Piece.Type  == PieceType.King)
                     {
                         _checkedKingView = _boardVisualizer.GetPieceView(new Vector2Int(f, r));
-                        _checkedKingView?.SetTint(Color.red);
+                        _checkedKingView?.SetTint(KingInCheckTint);
+
+                        // Tint every piece that is delivering check orange.
+                        Vector2Int kingPos = new Vector2Int(f, r);
+                        foreach (Vector2Int attackerPos in FindCheckingPieces(board, color, kingPos))
+                        {
+                            PieceView av = _boardVisualizer.GetPieceView(attackerPos);
+                            if (av != null)
+                            {
+                                av.SetTint(AttackerTint);
+                                _attackerViews.Add(av);
+                            }
+                        }
                         return;
                     }
         }
@@ -175,6 +200,40 @@ namespace Chess.Core
         {
             _checkedKingView?.ResetTint();
             _checkedKingView = null;
+
+            foreach (PieceView av in _attackerViews)
+                av?.ResetTint();
+            _attackerViews.Clear();
+        }
+
+        /// <summary>
+        /// Returns the board positions of every opponent piece that is currently
+        /// giving check to the king of <paramref name="kingColor"/> at
+        /// <paramref name="kingPos"/>.
+        /// Uses pseudo-legal move generation (GetValidMoves) — sufficient because
+        /// we only need to know which squares can be reached, not full legality.
+        /// </summary>
+        private static List<Vector2Int> FindCheckingPieces(
+            Square[,] board, PieceColor kingColor, Vector2Int kingPos)
+        {
+            var checkers = new List<Vector2Int>();
+            PieceColor opponentColor = kingColor == PieceColor.White
+                ? PieceColor.Black : PieceColor.White;
+
+            for (int f = 0; f < BoardConstants.Size; f++)
+                for (int r = 0; r < BoardConstants.Size; r++)
+                    if (board[f, r].IsOccupied && board[f, r].Piece.Color == opponentColor)
+                    {
+                        Piece opp = board[f, r].Piece;
+                        foreach (Vector2Int target in opp.GetValidMoves(board))
+                            if (target == kingPos)
+                            {
+                                checkers.Add(new Vector2Int(f, r));
+                                break;
+                            }
+                    }
+
+            return checkers;
         }
     }
 }
