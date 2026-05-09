@@ -338,7 +338,7 @@ If nothing needs changing, still create a one-line commit `chore: cleanup check 
 - **GitHub repo:** https://github.com/xdeltaxxvi-rgb/CHESS
 - **Project board:** https://github.com/users/xdeltaxxvi-rgb/projects/1
 - **Issue tracker:** https://github.com/xdeltaxxvi-rgb/CHESS/issues
-- **Unity version:** 6000.4.6f1 (Unity 6) — install via Unity Hub
+- **Unity version:** 6000.4.5f1 (Unity 6) — install via Unity Hub
 - **IDE:** Visual Studio 2026
 - **Yarn Spinner docs:** https://www.yarnspinner.dev/
 - **Unity URP docs:** https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest
