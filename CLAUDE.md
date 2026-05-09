@@ -25,7 +25,7 @@ A 3D story-driven chess game for Android and iOS. The core mechanic is standard 
 
 | Tool | Version | Purpose |
 |---|---|---|
-| Unity | **6000.4.6f1 (Unity 6)** | Game engine |
+| Unity | **6000.4.5f1 (Unity 6)** | Game engine |
 | IDE | **Visual Studio 2026** | C# development |
 | Render Pipeline | URP (Universal) | Mobile-optimised rendering |
 | Language | C# (.NET Standard 2.1) | All game logic |
@@ -165,6 +165,8 @@ CHESS/                          ← Git repo root
 - **`Array.Clear` on `Move?[MaxPly, 2]`** — works by treating the 2D array as a flat sequence (`_killers.Length = MaxPly * 2`). Sets all slots to `null` (Nullable default). No special handling needed.
 - **`ChessAI.CloneBoard` must deep-clone Piece objects** — `Square` is a value type but `Piece` is a class. A shallow copy (struct copy only) means all board clones in the search tree share the same `Piece` references. `ApplyMove` mutates `piece.Position` and `piece.HasMoved` on those shared objects, corrupting the live BoardManager board. Fix: `ClonePiece(Piece p)` creates a fresh piece of the correct subtype and copies `HasMoved`. Every board clone in the AI search has its own Piece objects isolated from the main thread.
 - **`MoveSelector.OnMoveExecutedDetailed` fires before `OnMoveExecuted`** — in `ExecuteMove`, the order is: detailed event first, then the plain event. GameManager's `AppendMoveHistory` therefore runs before `SwitchTurn`. This is intentional: the history is complete (including the triggering move) by the time `SwitchTurn` reads it.
+- **Check tile highlight** — when a king is in check, `GameManager.ShowCheckVisual` tints the king's board tile red and every attacker's tile orange, storing each tile's original `MeshRenderer.material.color` so it can be restored exactly when check is resolved. Piece models are never tinted. Tiles are accessed via `BoardVisualizer.GetTile(file, rank)`. The tint persists after checkmate (no `ClearCheckVisual` fires once game is over) — this is the only in-game visual signal for checkmate until Phase 5 adds a game-over panel.
+- **Editor-blocking AI search** — calling `ChessAI.GetBestMove` synchronously from a `[MenuItem]` blocks Unity's main thread for the full search duration. Cap `MaxSearchDepth` at 2 in any editor validator (`AIGameValidator.cs`). If deeper testing is needed, use `EditorCoroutines` (Unity package) or `Task.Run` with an `EditorApplication.update` poll loop — do NOT call depth ≥ 4 on the main editor thread.
 
 ### Story & Factions
 - `NarrativeController` reads the current chapter from `SaveManager` and:
@@ -262,7 +264,7 @@ CHESS/                          ← Git repo root
 | **9 — Monetization & Analytics** | Unity IAP, Firebase, chapter unlock flow | 2026-10-22 |
 | **10 — Launch** | Store listings, release builds, beta, submission | 2026-11-05 |
 
-**Current phase: Phase 2 — AI Opponent**
+**Current phase: Phase 3 — 3D Art & Camera** (Phase 2 complete ✅)
 
 All 89 tasks are tracked as GitHub Issues at: https://github.com/xdeltaxxvi-rgb/CHESS/issues
 Project board: https://github.com/users/xdeltaxxvi-rgb/projects/1
