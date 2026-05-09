@@ -112,6 +112,10 @@ CHESS/                          ← Git repo root
 - **`Square.IsEnPassantTarget`**: transient bool flag set by `BoardManager.ExecuteMove` on the square a pawn passed through on a double-step; cleared at the start of every subsequent move. `Pawn.GetValidMoves` reads it directly from the board array — no signature change to `GetValidMoves` needed.
 - **Special move pattern (castling, en passant, promotion)**: every special move must be handled in **three places**: `BoardManager.ExecuteMove` (data), `MoveSelector.ExecuteMove` (visual), and `MoveValidator.Simulate` (simulation). All three must stay in sync. Castling = King moves ±2 files. En passant = pawn moves to `IsEnPassantTarget` square; captured pawn is at `(to.x, from.y)`. Promotion = pawn lands on back rank; `BoardManager.PromotePawn` + `BoardVisualizer.ReplacePieceView`. The auto-Queen call in `MoveSelector` is the **Phase 5 UI extension point**.
 
+### Input System
+- **Active Input Handling must be set to "Both"** (Project Settings → Player → Other Settings → Active Input Handling). The project ships the new Input System package (required by some Unity 6 internals) but `TileSelector` uses the legacy `UnityEngine.Input` API. Setting to "Both" lets both coexist. Setting to "Input System Package (New)" only breaks `TileSelector`; setting to "Input Manager (Old)" only removes the deprecation warning but is the correct behaviour for this codebase. The deprecation warning that appears in Play mode ("This project uses Input Manager, which is marked for deprecation") is harmless and expected.
+- Do **not** migrate `TileSelector` to the new Input System — it would require `PlayerInput` component plumbing and is out of scope for Phase 1.
+
 ### Game Flow
 - `GameManager` is the single source of truth for: whose turn it is, whether game is over, current board state.
 - Turn order: `White → Black → White`. White always goes first.
