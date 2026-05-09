@@ -12,8 +12,12 @@ namespace Chess.AI
     /// </summary>
     public interface IChessAI
     {
-        // Returns null when the player has no legal moves (checkmate / stalemate).
-        Move? GetBestMove(Square[,] board, PieceColor color, int depth);
+        /// <param name="depth">Negamax search depth (2=Easy, 4=Medium, 6=Hard).</param>
+        /// <param name="useQuiescence">Extend search through captures at leaf nodes (off on Easy).</param>
+        /// <param name="moveSequenceKey">Comma-separated move history in "e2e4" notation.
+        ///   Used for opening book lookup. Pass empty string if book is disabled.</param>
+        Move? GetBestMove(Square[,] board, PieceColor color, int depth,
+                          bool useQuiescence, string moveSequenceKey);
     }
 
     /// <summary>
@@ -39,11 +43,31 @@ namespace Chess.AI
         private readonly TranspositionTable _tt      = new TranspositionTable(32);
         private readonly Move?[,]           _killers = new Move?[MaxPly, 2];
 
+        // Set at the start of each GetBestMove call; read by Negamax leaf nodes.
+        private bool _useQuiescence;
+
         // ----- Public entry point ------------------------------------------------
 
-        public Move? GetBestMove(Square[,] board, PieceColor color, int maxDepth)
+        public Move? GetBestMove(Square[,] board, PieceColor color, int maxDepth,
+                                  bool useQuiescence, string moveSequenceKey)
         {
+            // ----- Opening book (Medium / Hard only) ----------------------------
+            if (!string.IsNullOrEmpty(moveSequenceKey) &&
+                OpeningBook.TryGetMove(moveSequenceKey, out Move bookMove))
+            {
+                // Verify the book move is actually legal before playing it.
+                Square sq = board[bookMove.From.x, bookMove.From.y];
+                if (sq.IsOccupied && sq.Piece.Color == color)
+                {
+                    var legal = MoveValidator.GetLegalMoves(sq.Piece, board);
+                    if (legal.Contains(bookMove.To))
+                        return bookMove;
+                }
+            }
+
+            // ----- Engine search ------------------------------------------------
             Square[,] clone = CloneBoard(board);
+            _useQuiescence = useQuiescence;
 
             // Reset search state between calls.
             _tt.Clear();
@@ -105,7 +129,9 @@ namespace Chess.AI
 
             // ----- Leaf node -----------------------------------------------------
             if (depth == 0)
-                return QuiescenceSearch(board, color, alpha, beta);
+                return _useQuiescence
+                    ? QuiescenceSearch(board, color, alpha, beta)
+                    : Evaluator.Evaluate(board, color);
 
             bool inCheck = MoveValidator.IsKingInCheck(board, color);
 
