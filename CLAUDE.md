@@ -138,7 +138,7 @@ CHESS/                          ← Git repo root
 - Auto-save on: chapter complete, chapter start, app pause (`OnApplicationPause`).
 
 ### Camera
-- **Orthographic** camera. Position `(0, 18, 0)`, rotation `(30°, 45°, 0°)`.
+- **Orthographic** camera. Position `(-22, 18, -22)`, rotation `(30°, 45°, 0°)`. This rotation's forward vector is (0.612, -0.5, 0.612), so the camera must be offset by (-22, 18, -22) to look at world origin (0, 0, 0) where the board sits.
 - Orthographic size is calculated at runtime from screen aspect ratio to keep the board in the upper ~70% of portrait screen.
 - Do not use perspective cameras for the board scene.
 
