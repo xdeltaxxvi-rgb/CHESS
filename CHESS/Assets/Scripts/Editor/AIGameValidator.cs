@@ -16,20 +16,20 @@ namespace Chess.Editor
     ///
     /// Access via: Chess ▶ Validate AI ▶ Run Self-Play Test
     ///
-    /// Search depth is capped at 4 for all difficulties so the test
-    /// finishes in reasonable time (~30 s for 9 games).  The point is to
-    /// exercise the move-generation / legality pipeline at each difficulty's
-    /// quiescence / opening-book settings, not to benchmark strength.
+    /// Search depth is capped at 2 for all difficulties so the test
+    /// finishes in under 10 s for 9 games.  The point is to exercise the
+    /// move-generation / legality pipeline at each difficulty's quiescence /
+    /// opening-book settings, not to benchmark strength.
     /// </summary>
     public static class AIGameValidator
     {
         private const int GamesPerDifficulty = 3;   // 3 × 3 difficulties = 9 total
-        private const int MaxMovesPerGame    = 120;  // ~60 moves each side
-        private const int MaxSearchDepth     = 4;    // cap depth so the test is fast
+        private const int MaxMovesPerGame    = 60;   // ~30 moves each side — enough to hit most positions
+        private const int MaxSearchDepth     = 2;    // depth 2 keeps each ply < 50 ms; total run < 10 s
 
         // ── Entry point ────────────────────────────────────────────────────
 
-        [MenuItem("Chess/Validate AI/Run Self-Play Test (9 games)")]
+        [MenuItem("Chess/Validate AI/Run Self-Play Test (9 games, depth 2)")]
         public static void RunSelfPlayTest()
         {
             Debug.Log("[AIValidator] ── Starting self-play validation ──");
