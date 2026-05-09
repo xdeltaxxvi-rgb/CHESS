@@ -52,7 +52,10 @@ CHESS/                          ← Git repo root
 │   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, PieceView.cs, King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
 │   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss
 │   │   │   ├── AI/
-│   │   │   │   └── ChessAI.cs      ← IChessAI interface + minimax implementation
+│   │   │   │   ├── ChessAI.cs      ← IChessAI interface + minimax implementation
+│   │   │   │   ├── Evaluator.cs    ← Static board evaluator (material + piece-square tables)
+│   │   │   │   ├── PieceValues.cs  ← Centipawn constants: P=100 N=320 B=330 R=500 Q=900
+│   │   │   │   └── PieceSquareTables.cs ← 8×8 positional bonus arrays per piece type
 │   │   │   ├── Input/
 │   │   │   │   ├── TileSelector.cs ← Raycasting, tile/piece hit detection
 │   │   │   │   └── MoveSelector.cs ← Valid move highlighting, move execution
