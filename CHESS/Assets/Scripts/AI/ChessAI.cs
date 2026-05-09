@@ -412,8 +412,35 @@ namespace Chess.AI
             var dst = new Square[BoardConstants.Size, BoardConstants.Size];
             for (int f = 0; f < BoardConstants.Size; f++)
                 for (int r = 0; r < BoardConstants.Size; r++)
-                    dst[f, r] = src[f, r]; // Square is a value type — copy is deep.
+                {
+                    dst[f, r] = src[f, r]; // Copy Square struct fields (File, Rank, Color, flags).
+                    // Piece is a reference type — must deep-clone so ApplyMove mutations
+                    // (piece.Position, piece.HasMoved) do not corrupt parent board states
+                    // or the live BoardManager board that the search started from.
+                    if (src[f, r].IsOccupied)
+                    {
+                        var sq = dst[f, r];
+                        sq.Piece = ClonePiece(src[f, r].Piece);
+                        dst[f, r] = sq;
+                    }
+                }
             return dst;
+        }
+
+        private static Piece ClonePiece(Piece p)
+        {
+            Piece clone = p.Type switch
+            {
+                PieceType.King   => new King  (p.Color, p.Position),
+                PieceType.Queen  => new Queen (p.Color, p.Position),
+                PieceType.Rook   => new Rook  (p.Color, p.Position),
+                PieceType.Bishop => new Bishop(p.Color, p.Position),
+                PieceType.Knight => new Knight(p.Color, p.Position),
+                PieceType.Pawn   => new Pawn  (p.Color, p.Position),
+                _ => throw new System.InvalidOperationException($"Unknown PieceType: {p.Type}")
+            };
+            clone.HasMoved = p.HasMoved;
+            return clone;
         }
 
         /// <summary>
