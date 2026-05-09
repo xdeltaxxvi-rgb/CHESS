@@ -18,6 +18,13 @@ namespace Chess.AI
         ///   Used for opening book lookup. Pass empty string if book is disabled.</param>
         Move? GetBestMove(Square[,] board, PieceColor color, int depth,
                           bool useQuiescence, string moveSequenceKey);
+
+        /// <summary>
+        /// Nodes visited during the most recent GetBestMove call.
+        /// Populated after GetBestMove returns; read by GameManager for performance logging.
+        /// Returns 0 when a book move was played (no search performed).
+        /// </summary>
+        int NodesSearched { get; }
     }
 
     /// <summary>
@@ -46,6 +53,9 @@ namespace Chess.AI
         // Set at the start of each GetBestMove call; read by Negamax leaf nodes.
         private bool _useQuiescence;
 
+        // Node counter — reset each GetBestMove call, read by GameManager for logging.
+        public int NodesSearched { get; private set; }
+
         // ----- Public entry point ------------------------------------------------
 
         public Move? GetBestMove(Square[,] board, PieceColor color, int maxDepth,
@@ -68,6 +78,7 @@ namespace Chess.AI
             // ----- Engine search ------------------------------------------------
             Square[,] clone = CloneBoard(board);
             _useQuiescence = useQuiescence;
+            NodesSearched  = 0; // reset before search begins
 
             // Reset search state between calls.
             _tt.Clear();
@@ -75,13 +86,16 @@ namespace Chess.AI
 
             Move? bestMove = null;
 
-            // Iterative deepening: always have a valid result even if deeper search
-            // is slow. Each iteration benefits from TT / killer moves of the previous.
-            for (int depth = 1; depth <= maxDepth; depth++)
+            using (AIPerformanceLogger.SearchMarker.Auto())
             {
-                Move? candidate = SearchRoot(clone, color, depth);
-                if (candidate.HasValue)
-                    bestMove = candidate;
+                // Iterative deepening: always have a valid result even if deeper search
+                // is slow. Each iteration benefits from TT / killer moves of the previous.
+                for (int depth = 1; depth <= maxDepth; depth++)
+                {
+                    Move? candidate = SearchRoot(clone, color, depth);
+                    if (candidate.HasValue)
+                        bestMove = candidate;
+                }
             }
 
             return bestMove;
@@ -122,6 +136,8 @@ namespace Chess.AI
         private int Negamax(Square[,] board, PieceColor color, int depth,
                             int alpha, int beta, int ply)
         {
+            NodesSearched++;
+
             // ----- Transposition table lookup ------------------------------------
             ulong hash = ZobristTable.ComputeHash(board, color);
             if (_tt.TryGet(hash, depth, alpha, beta, out int ttScore, out Move? ttMove))
@@ -396,8 +412,35 @@ namespace Chess.AI
             var dst = new Square[BoardConstants.Size, BoardConstants.Size];
             for (int f = 0; f < BoardConstants.Size; f++)
                 for (int r = 0; r < BoardConstants.Size; r++)
-                    dst[f, r] = src[f, r]; // Square is a value type — copy is deep.
+                {
+                    dst[f, r] = src[f, r]; // Copy Square struct fields (File, Rank, Color, flags).
+                    // Piece is a reference type — must deep-clone so ApplyMove mutations
+                    // (piece.Position, piece.HasMoved) do not corrupt parent board states
+                    // or the live BoardManager board that the search started from.
+                    if (src[f, r].IsOccupied)
+                    {
+                        var sq = dst[f, r];
+                        sq.Piece = ClonePiece(src[f, r].Piece);
+                        dst[f, r] = sq;
+                    }
+                }
             return dst;
+        }
+
+        private static Piece ClonePiece(Piece p)
+        {
+            Piece clone = p.Type switch
+            {
+                PieceType.King   => new King  (p.Color, p.Position),
+                PieceType.Queen  => new Queen (p.Color, p.Position),
+                PieceType.Rook   => new Rook  (p.Color, p.Position),
+                PieceType.Bishop => new Bishop(p.Color, p.Position),
+                PieceType.Knight => new Knight(p.Color, p.Position),
+                PieceType.Pawn   => new Pawn  (p.Color, p.Position),
+                _ => throw new System.InvalidOperationException($"Unknown PieceType: {p.Type}")
+            };
+            clone.HasMoved = p.HasMoved;
+            return clone;
         }
 
         /// <summary>

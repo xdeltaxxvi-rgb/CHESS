@@ -60,8 +60,9 @@ CHESS/                          ← Git repo root
 │   │   │   │   ├── PieceSquareTables.cs  ← 8×8 positional bonus arrays per piece type
 │   │   │   │   ├── ZobristTable.cs       ← Deterministic 64-bit hash per piece/color/square (seed 20260508)
 │   │   │   │   ├── TranspositionTable.cs ← 32 MB flat-array TT; Exact/LowerBound/UpperBound TTFlag enum
-│   │   │   │   ├── DifficultySettings.cs ← Difficulty enum (Easy/Medium/Hard) + PlayerPrefs persistence (key: "Difficulty")
-│   │   │   │   └── OpeningBook.cs        ← ~25-entry coordinate-notation book; keyed by comma-sep move history
+│   │   │   │   ├── DifficultySettings.cs  ← Difficulty enum (Easy/Medium/Hard) + PlayerPrefs persistence (key: "Difficulty")
+│   │   │   │   ├── OpeningBook.cs         ← ~25-entry coordinate-notation book; keyed by comma-sep move history
+│   │   │   │   └── AIPerformanceLogger.cs ← ProfilerMarkers (ChessAI.Search/.Negamax/.Quiescence/.Evaluate) + threshold-aware Debug.Log
 │   │   │   ├── Input/
 │   │   │   │   ├── TileSelector.cs ← Raycasting, tile/piece hit detection
 │   │   │   │   └── MoveSelector.cs ← Valid move highlighting, move execution; fires OnMoveExecutedDetailed(from,to)
@@ -160,6 +161,7 @@ CHESS/                          ← Git repo root
 - **`ChessAI._useQuiescence` is a single-writer instance field** — safe because `GameManager` never overlaps AI calls (it disables `MoveSelector` before `Task.Run` and only re-enables it after `await` returns). If concurrent calls are ever introduced, this field must become a parameter.
 - **Opening book uses 4-char coordinate notation only** — e.g. `"e2e4"`, NOT algebraic `"e4"` or `"Nf3"`. `OpeningBook.MoveToKey(Move)` is the single place that generates keys; call it for every move in GameManager.
 - **`Array.Clear` on `Move?[MaxPly, 2]`** — works by treating the 2D array as a flat sequence (`_killers.Length = MaxPly * 2`). Sets all slots to `null` (Nullable default). No special handling needed.
+- **`ChessAI.CloneBoard` must deep-clone Piece objects** — `Square` is a value type but `Piece` is a class. A shallow copy (struct copy only) means all board clones in the search tree share the same `Piece` references. `ApplyMove` mutates `piece.Position` and `piece.HasMoved` on those shared objects, corrupting the live BoardManager board. Fix: `ClonePiece(Piece p)` creates a fresh piece of the correct subtype and copies `HasMoved`. Every board clone in the AI search has its own Piece objects isolated from the main thread.
 - **`MoveSelector.OnMoveExecutedDetailed` fires before `OnMoveExecuted`** — in `ExecuteMove`, the order is: detailed event first, then the plain event. GameManager's `AppendMoveHistory` therefore runs before `SwitchTurn`. This is intentional: the history is complete (including the triggering move) by the time `SwitchTurn` reads it.
 
 ### Story & Factions
@@ -188,8 +190,30 @@ CHESS/                          ← Git repo root
 | Triangles (board scene) | ≤ 30k |
 | Texture memory | ≤ 150 MB |
 | FPS (mid-range Android) | 60 during gameplay, 30 during dialogue |
-| AI move time (depth 6) | < 3 seconds |
+| AI move time — depth 2 (Easy) | < 500 ms |
+| AI move time — depth 4 (Medium) | < 2 000 ms |
+| AI move time — depth 6 (Hard) | < 3 000 ms |
 | App size | < 150 MB |
+
+### AI Profiling Procedure (Issue #33)
+**In-Editor (quick check):**
+1. Press Play → make a White move
+2. Watch the Unity Console — `[AI Perf]` line appears after every Black move
+3. Line shows: depth, elapsed ms, node count, ✓ (pass) or ⚠ OVER TARGET (fail)
+4. Open **Window → Analysis → Profiler** → filter by category `AI` to see `ChessAI.Search` marker breakdown
+
+**On Android device:**
+1. Build a **Development Build** with **Autoconnect Profiler** enabled (File → Build Settings)
+2. Install on Snapdragon 700 target via `adb install`
+3. In Unity Profiler, click **Android Player** in the device dropdown — it connects over USB
+4. Play a game, make moves — Profiler records live frame data
+5. Find `ChessAI.Search` samples; check duration column against targets above
+6. Check Memory section for GC Alloc spikes during AI turns (> 5 MB per move = warning logged)
+
+**If targets are not met:**
+- Depth 6 > 3 s: reduce Hard depth from 6 → 5 in `DifficultySettings.cs`
+- Excess GC: the main source is `List<Move>` allocation in `GenerateOrderedMoves` / `GenerateCapturesOrdered` — pre-allocated pools would fix it (Phase 7 optimisation)
+- High node count with slow time: check null move pruning is activating (requires depth ≥ 3 and not in endgame)
 
 ---
 
