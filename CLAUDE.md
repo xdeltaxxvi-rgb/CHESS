@@ -141,7 +141,7 @@ CHESS/                          ← Git repo root
   - Easy = depth 2, no quiescence search — makes mistakes, accessible to beginners.
   - Medium = depth 4, quiescence on — solid tactical play.
   - Hard = depth 6, quiescence on — strong play, challenges intermediate players.
-  - Stored in `SaveData`, loaded into `GameManager._aiDepth` on scene start.
+  - Stored in `PlayerPrefs` key `"Difficulty"` (Phase 2); `GameManager.Start()` reads it via `DifficultySettings` and sets `_aiDepth`, `_useQuiescence`, `_useOpeningBook`. Phase 5 `SaveManager` will migrate this into `save.json`.
 - **AI technique stack** (implemented across issues #28–#31):
   - **Evaluation** (#28 ✅): material (P=100 N=320 B=330 R=500 Q=900) + piece-square tables + endgame detection (non-pawn material < 1300cp)
   - **Evaluation** (#30 ✅): pawn structure (doubled −20/extra, isolated −15, passed +25+8×rank) + king safety (pawn shield +8/pawn, middlegame only) + mobility (3cp × pseudo-legal move advantage) + bishop pair (+30)
