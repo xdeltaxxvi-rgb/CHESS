@@ -52,12 +52,14 @@ CHESS/                          ← Git repo root
 │   │   │   │   ├── Pieces/         ← Piece.cs (base), PieceType.cs, PieceColor.cs, PieceView.cs, King.cs, Queen.cs, Rook.cs, Bishop.cs, Knight.cs, Pawn.cs
 │   │   │   │   └── GameManager.cs  ← Central authority: turn system, game state, win/loss
 │   │   │   ├── AI/
-│   │   │   │   ├── ChessAI.cs           ← IChessAI interface + full negamax engine
-│   │   │   │   ├── Evaluator.cs         ← Material + PST + pawn structure + king safety + mobility + bishop pair
-│   │   │   │   ├── PieceValues.cs       ← Centipawn constants: P=100 N=320 B=330 R=500 Q=900
-│   │   │   │   ├── PieceSquareTables.cs ← 8×8 positional bonus arrays per piece type
-│   │   │   │   ├── ZobristTable.cs      ← Deterministic 64-bit hash per piece/color/square (seed 20260508)
-│   │   │   │   └── TranspositionTable.cs ← 32 MB flat-array TT; Exact/LowerBound/UpperBound TTFlag enum
+│   │   │   │   ├── ChessAI.cs            ← IChessAI interface + full negamax engine
+│   │   │   │   ├── Evaluator.cs          ← Material + PST + pawn structure + king safety + mobility + bishop pair
+│   │   │   │   ├── PieceValues.cs        ← Centipawn constants: P=100 N=320 B=330 R=500 Q=900
+│   │   │   │   ├── PieceSquareTables.cs  ← 8×8 positional bonus arrays per piece type
+│   │   │   │   ├── ZobristTable.cs       ← Deterministic 64-bit hash per piece/color/square (seed 20260508)
+│   │   │   │   ├── TranspositionTable.cs ← 32 MB flat-array TT; Exact/LowerBound/UpperBound TTFlag enum
+│   │   │   │   ├── DifficultySettings.cs ← Difficulty enum (Easy/Medium/Hard) + PlayerPrefs persistence (key: "Difficulty")
+│   │   │   │   └── OpeningBook.cs        ← ~25-entry coordinate-notation book; keyed by comma-sep move history
 │   │   │   ├── Input/
 │   │   │   │   ├── TileSelector.cs ← Raycasting, tile/piece hit detection
 │   │   │   │   └── MoveSelector.cs ← Valid move highlighting, move execution
@@ -142,9 +144,13 @@ CHESS/                          ← Git repo root
   - **Pruning** (#30 ✅): alpha-beta + null move pruning (R=2 shallow / R=3 depth≥6; skipped in check or endgame) + late move reductions (reduction=1 after move 3, reduction=2 after move 8; re-searches at full depth if score > alpha)
   - **Ordering** (#29 ✅ + #30 ✅): TT best move first → MVV-LVA captures → killer moves (2 per ply) → quiet moves
   - **Caching** (#30 ✅): Zobrist hashing (ZobristTable.cs, seed 20260508) + 32 MB transposition table (TranspositionTable.cs, always-replace, TTFlag: Exact / LowerBound / UpperBound)
-  - **Opening** (#31 pending): hardcoded book (~20 lines, Medium/Hard only)
+  - **Opening** (#31 ✅): hardcoded coordinate-notation book (~25 entries, Medium/Hard only). Keyed by comma-joined move history ("e2e4,e7e5,g1f3"). Book move validated for legality before playing. `OpeningBook.MoveToKey(Move)` converts a Move to "e2e4" format — call it from GameManager after every move.
+  - **Difficulty persistence** (#31 ✅): `PlayerPrefs` key "Difficulty" (int: 0=Easy, 1=Medium, 2=Hard). Read in `GameManager.Start()`. Phase 5 `SaveManager` will migrate to `save.json`.
+  - **Move history tracking** (#31 ✅): `GameManager` maintains `_moveHistoryKey` (comma-sep string). `MoveSelector.OnMoveExecutedDetailed` event fires after every move with from/to; `GameManager.AppendMoveHistory` appends it. History key is captured before the AI move (book lookup), then the AI's move is appended by the event handler after `SubmitMove` returns.
 - AI computation runs on a **background thread** (C# `Task`). Main thread waits; "Thinking…" shown by HUDManager (Phase 5).
 - AI must **never** return an illegal move. If no moves available, return null — GameManager handles checkmate/stalemate.
+- **`IChessAI.GetBestMove` signature**: `Move? GetBestMove(Square[,] board, PieceColor color, int depth, bool useQuiescence, string moveSequenceKey)`. The `moveSequenceKey` is the comma-joined move history before the AI's current turn; pass `string.Empty` when opening book is disabled (Easy).
+- **`MoveSelector.OnMoveExecutedDetailed`**: `event Action<Vector2Int, Vector2Int>` — fired alongside `OnMoveExecuted` with from/to coordinates. GameManager subscribes to build the move history string for opening book lookups.
 - Do **not** use Stockfish or any external process/binary — iOS bans child processes; Android requires impractical JNI native plugin.
 
 ### Story & Factions

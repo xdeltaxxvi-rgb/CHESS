@@ -21,6 +21,8 @@ namespace Chess.Input
 
         // GameManager subscribes to switch turn after each move.
         public event Action OnMoveExecuted;
+        // Fired alongside OnMoveExecuted; passes from/to so GameManager can track move history.
+        public event Action<Vector2Int, Vector2Int> OnMoveExecutedDetailed;
 
         private PieceView _selectedView;
         private List<Vector2Int> _validMoves = new List<Vector2Int>();
@@ -109,6 +111,7 @@ namespace Chess.Input
             }
 
             Deselect();
+            OnMoveExecutedDetailed?.Invoke(from, to);
             OnMoveExecuted?.Invoke();
         }
 
