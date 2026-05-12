@@ -135,8 +135,14 @@ CHESS/                          ← Git repo root
 ### Game Flow
 - `GameManager` is the single source of truth for: whose turn it is, whether game is over, current board state.
 - Turn order: `White → Black → White`. White always goes first.
-- After every move, `GameManager` checks: Is the opponent in check? Is it checkmate? Is it stalemate?
-- Illegal moves are **impossible to execute** — they are filtered out before being offered to the player.
+- After every move, `GameManager.SwitchTurn` checks game-end conditions in this order:
+  1. **Checkmate** — opponent in check + no legal moves → opponent loses
+  2. **Stalemate** — opponent not in check + no legal moves → draw
+  3. **Insufficient material** (FIDE 5.2.2) — `MoveValidator.IsInsufficientMaterial(board)` detects K vs K, K+B/N vs K, K+B vs K+B with same-coloured bishops → draw
+  4. **50-move rule** — `BoardManager.HalfMoveClock >= 100` (reset to 0 on any pawn move or capture, incl. en passant) → draw
+  5. **Threefold repetition** — same position reached 3 times. `BoardManager.GetPositionKey(nextMover)` returns a FEN-style fingerprint (placement + side + castling rights + EP target); `GameManager` keeps a `Dictionary<string,int>` count seeded with the starting position. Three reps → draw.
+- All game-end paths converge on `GameManager.EndGame(winner, reason)`. `winner == null` → draw; `winner != null` → that colour wins. Both fire the `OnGameOver(PieceColor?)` event.
+- Illegal moves are **impossible to execute** — they are filtered out before being offered to the player. Editor-only `Debug.Assert` in `MoveSelector.SubmitMove` additionally guards against `IChessAI` regressions returning illegal moves.
 
 ### AI
 - AI lives behind `IChessAI` interface. `GameManager` calls `GetBestMove()` — never the concrete class directly.
@@ -166,6 +172,9 @@ CHESS/                          ← Git repo root
 - **`ChessAI.CloneBoard` must deep-clone Piece objects** — `Square` is a value type but `Piece` is a class. A shallow copy (struct copy only) means all board clones in the search tree share the same `Piece` references. `ApplyMove` mutates `piece.Position` and `piece.HasMoved` on those shared objects, corrupting the live BoardManager board. Fix: `ClonePiece(Piece p)` creates a fresh piece of the correct subtype and copies `HasMoved`. Every board clone in the AI search has its own Piece objects isolated from the main thread.
 - **`MoveSelector.OnMoveExecutedDetailed` fires before `OnMoveExecuted`** — in `ExecuteMove`, the order is: detailed event first, then the plain event. GameManager's `AppendMoveHistory` therefore runs before `SwitchTurn`. This is intentional: the history is complete (including the triggering move) by the time `SwitchTurn` reads it.
 - **Check tile highlight** — when a king is in check, `GameManager.ShowCheckVisual` tints the king's board tile red and every attacker's tile orange, storing each tile's original `MeshRenderer.material.color` so it can be restored exactly when check is resolved. Piece models are never tinted. Tiles are accessed via `BoardVisualizer.GetTile(file, rank)`. The tint persists after checkmate (no `ClearCheckVisual` fires once game is over) — this is the only in-game visual signal for checkmate until Phase 5 adds a game-over panel.
+- **`King.GetValidMoves` returns pseudo-legal moves only** — same contract as every other piece. Do NOT add an `IsAttackedBy` filter on adjacent-square destinations in `King.cs`. The King itself blocks slider rays from its current position, so such a filter would mis-report "King moves backward along a slider ray" destinations as safe. Legality (does the move leave the King in check?) is enforced uniformly by `MoveValidator.GetLegalMoves` via `Simulate`, which correctly removes the King before running attack detection. See `docs/CHESS_RULES_AUDIT.md` → H1.
+- **`MoveValidator.Simulate` is a shallow board clone** — `Square` is a struct (cloned by value) but `Piece` is a class, so the simulated board shares `Piece` references with the live `BoardManager` board. NEVER add `piece.Position = to` or `piece.HasMoved = true` lines inside `Simulate` — doing so would mutate the live board through the shared references. If full piece-state simulation is ever needed, follow `ChessAI.CloneBoard`'s deep-clone pattern.
+- **Pawn double-step** requires BOTH `rank == startRank` AND `!HasMoved`. Belt-and-suspenders — the two checks are equivalent today, but the rank check guarantees the rule survives any future state-reset path (undo, history rewind, etc.).
 - **Editor-blocking AI search** — calling `ChessAI.GetBestMove` synchronously from a `[MenuItem]` blocks Unity's main thread for the full search duration. Cap `MaxSearchDepth` at 2 in any editor validator (`AIGameValidator.cs`). If deeper testing is needed, use `EditorCoroutines` (Unity package) or `Task.Run` with an `EditorApplication.update` poll loop — do NOT call depth ≥ 4 on the main editor thread.
 
 ### Story & Factions
