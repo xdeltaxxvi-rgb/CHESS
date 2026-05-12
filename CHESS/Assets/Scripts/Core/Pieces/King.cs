@@ -11,6 +11,14 @@ namespace Chess.Core.Pieces
 
         public override List<Vector2Int> GetValidMoves(Square[,] board)
         {
+            // Pseudo-legal only — return all adjacent squares not occupied by an own piece,
+            // plus any legal castling targets. Legality (does the move leave the King in
+            // check?) is enforced uniformly by MoveValidator.GetLegalMoves via Simulate,
+            // which correctly removes the King before running attack detection. An
+            // IsAttackedBy filter here would be both redundant AND incorrect — the King
+            // itself blocks slider rays from its current square, so it would report
+            // "King moves backward along a slider ray" destinations as safe. See the
+            // Chess Rules Audit (docs/CHESS_RULES_AUDIT.md → H1) for the full trace.
             var moves = new List<Vector2Int>();
             for (int fd = -1; fd <= 1; fd++)
             {
@@ -21,7 +29,6 @@ namespace Chess.Core.Pieces
                     int r = Position.y + rd;
                     if (!IsInBounds(f, r)) continue;
                     if (board[f, r].IsOccupiedByColor(Color)) continue;
-                    if (AttackChecker.IsAttackedBy(board, f, r, Opponent())) continue;
                     moves.Add(new Vector2Int(f, r));
                 }
             }

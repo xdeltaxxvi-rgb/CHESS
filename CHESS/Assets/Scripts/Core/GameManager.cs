@@ -28,6 +28,12 @@ namespace Chess.Core
         // Comma-separated coordinate moves ("e2e4,e7e5,...") built after every move.
         private string _moveHistoryKey = string.Empty;
 
+        // ----- Threefold-repetition tracking -------------------------------------
+        // Keyed on BoardManager.GetPositionKey(nextMover); value is the count of times
+        // that exact position has been reached during this game (including the
+        // starting position). Game ends when any entry reaches 3.
+        private readonly Dictionary<string, int> _positionCount = new Dictionary<string, int>();
+
         // ----- Turn state --------------------------------------------------------
         public PieceColor CurrentTurn { get; private set; } = PieceColor.White;
         public bool IsInCheck  { get; private set; }
@@ -69,6 +75,9 @@ namespace Chess.Core
             _useOpeningBook = DifficultySettings.UseOpeningBook;
 
             _moveSelector.CurrentPlayer = CurrentTurn;
+
+            // Seed the threefold-repetition counter with the starting position.
+            _positionCount[_boardManager.GetPositionKey(CurrentTurn)] = 1;
         }
 
         private void OnEnable()
@@ -110,19 +119,31 @@ namespace Chess.Core
 
             if (!MoveValidator.HasAnyLegalMove(board, CurrentTurn))
             {
-                IsGameOver = true;
-                _moveSelector.enabled = false;
                 // Checkmate: in check + no moves → opponent wins. Stalemate → draw.
                 PieceColor? winner = IsInCheck
                     ? (CurrentTurn == PieceColor.White ? PieceColor.Black : PieceColor.White)
                     : (PieceColor?)null;
+                EndGame(winner, IsInCheck ? "Checkmate" : "Stalemate");
+                return;
+            }
 
-                if (winner.HasValue)
-                    Debug.Log($"[GameManager] Checkmate! {winner.Value} wins.");
-                else
-                    Debug.Log("[GameManager] Stalemate — Draw.");
-
-                OnGameOver?.Invoke(winner);
+            // FIDE draw-by-rule conditions (only checked when legal moves still exist).
+            if (MoveValidator.IsInsufficientMaterial(board))
+            {
+                EndGame(null, "Insufficient material");
+                return;
+            }
+            if (_boardManager.HalfMoveClock >= 100)
+            {
+                EndGame(null, "50-move rule");
+                return;
+            }
+            string positionKey = _boardManager.GetPositionKey(CurrentTurn);
+            _positionCount.TryGetValue(positionKey, out int reps);
+            _positionCount[positionKey] = ++reps;
+            if (reps >= 3)
+            {
+                EndGame(null, "Threefold repetition");
                 return;
             }
 
@@ -131,6 +152,19 @@ namespace Chess.Core
 
             if (CurrentTurn == PieceColor.Black)
                 StartAITurn();
+        }
+
+        // Sets game-over state, disables player input, and fires OnGameOver.
+        // winner == null → draw; winner != null → that colour wins.
+        private void EndGame(PieceColor? winner, string reason)
+        {
+            IsGameOver = true;
+            _moveSelector.enabled = false;
+            if (winner.HasValue)
+                Debug.Log($"[GameManager] {reason} — {winner.Value} wins.");
+            else
+                Debug.Log($"[GameManager] {reason} — Draw.");
+            OnGameOver?.Invoke(winner);
         }
 
         private async void StartAITurn()
