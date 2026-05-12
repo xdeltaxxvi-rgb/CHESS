@@ -1,3 +1,4 @@
+using System.Text;
 using UnityEngine;
 using Chess.Core.Pieces;
 
@@ -7,6 +8,13 @@ namespace Chess.Core.Board
     {
         private Square[,] _board;
         private Vector2Int? _enPassantTarget;
+
+        // Half-move clock for the 50-move rule: incremented every move that is NOT
+        // a pawn move and NOT a capture (incl. en passant). Resets to 0 on either.
+        // 100 half-moves (= 50 full moves) without progress → claimable draw.
+        // Used by GameManager.SwitchTurn for game-end detection.
+        private int _halfMoveClock;
+        public int HalfMoveClock => _halfMoveClock;
 
         private void Awake()
         {
@@ -91,12 +99,78 @@ namespace Chess.Core.Board
             _ => throw new System.ArgumentException($"Cannot promote to {type}")
         };
 
+        // Builds a FIDE-correct position fingerprint for the threefold-repetition rule:
+        // piece placement + side to move + castling rights + en-passant target.
+        // String form is cheap and easy to debug; ~70 chars per call. GameManager keeps
+        // a Dictionary<string,int> count keyed on this and ends the game when any
+        // entry reaches 3.
+        public string GetPositionKey(PieceColor nextMover)
+        {
+            var sb = new StringBuilder(80);
+            for (int f = 0; f < BoardConstants.Size; f++)
+                for (int r = 0; r < BoardConstants.Size; r++)
+                {
+                    Piece p = _board[f, r].Piece;
+                    sb.Append(p == null ? '.' : PieceChar(p));
+                }
+            sb.Append(nextMover == PieceColor.White ? 'w' : 'b');
+            sb.Append(CastleRights(PieceColor.White));
+            sb.Append(CastleRights(PieceColor.Black));
+            sb.Append(_enPassantTarget.HasValue
+                ? $"{_enPassantTarget.Value.x},{_enPassantTarget.Value.y}"
+                : "-");
+            return sb.ToString();
+        }
+
+        // FEN-style: white = uppercase, black = lowercase. K Q R B N P.
+        private static char PieceChar(Piece p)
+        {
+            char c = p.Type switch
+            {
+                PieceType.King   => 'k',
+                PieceType.Queen  => 'q',
+                PieceType.Rook   => 'r',
+                PieceType.Bishop => 'b',
+                PieceType.Knight => 'n',
+                PieceType.Pawn   => 'p',
+                _ => '?'
+            };
+            return p.Color == PieceColor.White ? char.ToUpper(c) : c;
+        }
+
+        // Returns "KQ", "Q", "K", or "-" — derived from King + Rook HasMoved flags.
+        // (The board doesn't track castling rights explicitly; the source of truth is
+        // each piece's HasMoved bool. This matches the existing castling-legality
+        // check in King.AddCastlingMoves.)
+        private string CastleRights(PieceColor color)
+        {
+            int rank = color == PieceColor.White ? 0 : BoardConstants.Size - 1;
+            Piece king = _board[4, rank].Piece;
+            if (king == null || king.Type != PieceType.King || king.HasMoved) return "-";
+
+            string rights = "";
+            Piece kingsideRook = _board[BoardConstants.Size - 1, rank].Piece;
+            if (kingsideRook != null && kingsideRook.Type == PieceType.Rook && !kingsideRook.HasMoved)
+                rights += "K";
+            Piece queensideRook = _board[0, rank].Piece;
+            if (queensideRook != null && queensideRook.Type == PieceType.Rook && !queensideRook.HasMoved)
+                rights += "Q";
+            return string.IsNullOrEmpty(rights) ? "-" : rights;
+        }
+
         public void ExecuteMove(Vector2Int from, Vector2Int to)
         {
             Piece piece = _board[from.x, from.y].Piece;
 
             // En passant: detect before clearing the flag, then remove the bypassed pawn.
             bool isEnPassant = piece.Type == PieceType.Pawn && _board[to.x, to.y].IsEnPassantTarget;
+
+            // 50-move-rule clock. Reset on pawn move OR any capture (regular or EP).
+            // Compute BEFORE the destination square is cleared so we can detect captures.
+            bool isCapture = _board[to.x, to.y].IsOccupied || isEnPassant;
+            bool isPawnMove = piece.Type == PieceType.Pawn;
+            if (isPawnMove || isCapture) _halfMoveClock = 0;
+            else _halfMoveClock++;
 
             // Clear previous en passant target.
             if (_enPassantTarget.HasValue)

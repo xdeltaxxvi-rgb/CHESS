@@ -130,7 +130,18 @@ namespace Chess.Input
         public PieceView SelectedView => _selectedView;
 
         // Called by GameManager to execute the AI's chosen move directly,
-        // bypassing click input.
-        public void SubmitMove(Vector2Int from, Vector2Int to) => ExecuteMove(from, to);
+        // bypassing click input. Adds an Editor-only legality assert: the IChessAI
+        // contract is "never return an illegal move", but this catches regressions
+        // immediately in Play mode rather than corrupting the board silently.
+        public void SubmitMove(Vector2Int from, Vector2Int to)
+        {
+            Square[,] board = _boardManager.GetBoard();
+            Piece     piece = board[from.x, from.y].Piece;
+            Debug.Assert(piece != null && piece.Color == CurrentPlayer,
+                $"SubmitMove: no {CurrentPlayer} piece at {from}");
+            Debug.Assert(piece == null || GetLegalMoves(piece, board).Contains(to),
+                $"SubmitMove: illegal move {from}→{to} for {piece?.Color} {piece?.Type}");
+            ExecuteMove(from, to);
+        }
     }
 }
