@@ -16,8 +16,38 @@ A 3D story-driven chess game for Android and iOS. The core mechanic is standard 
 - Chess rules never change. Only the visual skin of the enemy pieces changes per faction.
 
 **Platform:** Android (primary), iOS (secondary). PC is post-launch.
-**Orientation:** Portrait only. This is non-negotiable.
-**Style:** 3D low-poly stylized. Isometric orthographic camera.
+**Orientation:** Landscape only. This is non-negotiable.
+**Style:** Cinematic realistic 3D — King's Bounty / Total War / Disciples lineage. Per-chapter battlefield environments. Fixed perspective camera with two cinematic modes (no player camera control).
+
+---
+
+## Visual Direction
+
+> Locked in via a discussion session — every future agent inherits this vision. Pivoted **from** "stone war-table in a fixed war room with miniature pieces and a minimal glassmorphic HUD" **to** the cinematic battlefield direction documented here. Reference images live with the user; the **King reference image** (silver armor, gold filigree, sapphire gems, royal-blue cape with fur trim) is the quality bar for every piece.
+
+- **Reference lineage: King's Bounty / Total War / Disciples / detailed fantasy tactics.** The look is "AAA cinematic fantasy battle" rendered on a chess grid. Pieces are detailed life-size warriors, not miniature tokens.
+- **Per-chapter open battlefield environment.** Each of the 8 chapters has its own complete 3D environment — Eldren's snow-capped mountain kingdom for Ch1, goblin caves for Ch2, orc badlands, elven forest, etc. **Full environment swap per chapter, NOT minor decor variants.** Castles, statues, banners, mountains, weather, skybox — all chapter-specific. Faction theming is delivered both through the environment AND through the piece-skin set.
+- **Pieces are life-size 3D characters standing on the battlefield tiles.** Not miniatures on a table. The 8×8 grid is large terrain tiles (~1 unit ≈ 1 metre at piece scale), with the characters at human scale standing on them. The Phase-1 chess rules are unchanged — a King still moves one tile, a Knight L-jumps, etc. — but the visual scale is dramatically larger.
+- **HUD: heavy framed dark-wood / dark-metal panels with gold trim.** NOT minimal glassmorphic — that was the previous direction and has been superseded. Visible UI chrome is part of the look:
+  - Top-left: framed PLAYER 1 / WHITE ARMY card with portrait + heraldic crest in a dark gold-trimmed frame
+  - Top-right: matching CPU / BLACK ARMY card
+  - Right side: vertical action menu (MOVE / END TURN / etc. — *visual flavor* on top of the standard chess select-piece-and-destination interaction; see "rules unchanged" caveat below)
+  - Bottom-left: selected-piece info panel — portrait, name, MOVES LEFT, HEALTH/100, RANGE, DAMAGE
+  - Bottom-centre: hotbar with utility icons (book, help, settings, swords, prev/next)
+- **The action-menu / stats UI is cinematic flavor only.** "MOVES LEFT 1", "HEALTH 100/100", "RANGE", "DAMAGE", "ATTACK / DEFEND / SPECIAL" are display garnish to sell the "tactical fantasy battle" feel. **Underlying gameplay is still standard chess.** A capture is binary — one move, piece is removed. No HP system, no damage rolls, no special abilities. The HUD just makes the move *feel* like a duel.
+- **Camera: two-mode fixed cinematic, no player control.**
+  - **Whole-board mode (idle / between turns):** high pitch (~55–65°), wide framing showing the full 8×8 grid + environment background. Both armies visible.
+  - **Close-up mode (on piece-select / during move):** low pitch (~20–30°), tighter framing on the selected piece + adjacent tiles. Hero-shot quality, sells the character detail.
+  - Smooth tween (~0.6 s cubic ease) between modes when triggered by player action.
+  - **NO player camera controls.** The camera frames everything for the player; the player only ever taps tiles. This is an intentional design + scope decision (saves input handling work and prevents bad-angle immersion-breakers).
+
+---
+
+## Game Size & Distribution
+
+- **Target install size: 3–5 GB.** Per-chapter environment art, life-size character models, and PBR texture atlases push the install well past the old < 150 MB target. Acceptable trade-off given modern mobile network speeds and storage.
+- **Download strategy:** initial install ships Chapters 1–3 (free tier). Chapters 4–8 download on first unlock (Unity addressables / runtime download). Keeps the base install closer to ~1.5–2 GB and lets paid chapters fetch on demand.
+- **Device floor:** Snapdragon 8 Gen 2 or newer on Android; iPhone 13 / A15 or newer on iOS. Mid-range Android (Snapdragon 700-series) gets a "Reduced Quality" preset (lower texture mips, reduced shadow detail, simpler skybox) targeting 30 FPS. Low-end (Snapdragon 600 and below) is unsupported.
 
 ---
 
@@ -182,22 +212,47 @@ CHESS/                          ← Git repo root
 - Auto-save on: chapter complete, chapter start, app pause (`OnApplicationPause`).
 
 ### Camera
-- **Orthographic** camera. Rotation `(50°, 45°, 0°)`, orthographic size `7`. Position `(−10.7, 18, −10.7)` to look at world origin where the board sits. **50° pitch** (not 30°) is required — 30° is too shallow, making the far half of the board visually compressed and unclickable in practice.
-- **Camera math rule for Euler(p, 45°, 0°)** — Unity applies Q = Qy·Qx, so forward = Qy(45°)·Qx(p)·(0,0,1) = (cos_p·0.707, −sin_p, cos_p·0.707). Position: d = 18/sin_p, cx = cz = −d·cos_p·0.707. For 45° yaw cx always equals cz. Example values: p=30° → pos(−22,18,−22); p=45° → pos(−12.7,18,−12.7); p=50° → pos(−10.7,18,−10.7); p=60° → pos(−7.4,18,−7.4).
-- Orthographic size is tuned for a landscape 8×8 board. Adjust for portrait/device aspect ratio in Phase 7.
-- Do not use perspective cameras for the board scene.
+- Managed by **`CameraController.cs`** (`[RequireComponent(Camera)]` on Main Camera). Added by `SceneSetup` editor tool.
+- **Visual reference: cinematic battlefield (King's Bounty / Total War).** Landscape only. See `## Visual Direction` near the top of this file for the full art bible.
+- **Perspective camera, NOT orthographic.** Background depth matters (mountains, banners, atmospheric haze) — perspective with a narrow FOV gives the "isometric-feeling" look while letting environment geometry have real depth. The previous orthographic + miniature-board direction has been superseded.
+- **Two fixed cinematic modes** — the camera state machine in `CameraController` switches between them in response to player action. NO player camera control (no pan / zoom / orbit).
+  - **`WholeBoard` (idle, between turns, on game start, on game end):**
+    - Pitch ≈ 55–65°, yaw 0°, FOV ≈ 20°
+    - Frames the full 8×8 grid + both armies + the environment backdrop
+    - The default state most of the time
+  - **`CloseUp` (on piece-select, during the move animation):**
+    - Pitch ≈ 20–30°, yaw 0° (or slight ± yaw for hero angle), FOV ≈ 25°
+    - Frames the selected piece + 1–2 tiles of surrounding context
+    - Sells the character detail (armor, face, cape) — this is where the King-reference quality earns its budget
+- **Transition between modes** — smooth tween over ~0.6 s with cubic ease-in-out. Position, rotation, and FOV all interpolated together. Use Unity's `Coroutine` or a small custom tween (no DOTween dependency required for one camera).
+- **Triggers:**
+  - Tap a piece → CloseUp on that piece
+  - Tap a valid destination → camera follows the piece during animation, then returns to WholeBoard once the move animation finishes
+  - End of opponent move → returns to WholeBoard
+  - Game start / game-over panel → WholeBoard
+- **Board geometry** — `BoardVisualizer` centres tiles at the world origin: `X = (file − 4 + 0.5) × tileSize` and same for Z. Board spans (−4, 0, −4) to (+4, 0, +4) at the OLD miniature scale. **With the life-size piece pivot, `_tileSize` will likely grow** (from ~1 m to ~2–3 m per tile) so characters fit comfortably; the CameraController math is unchanged because it operates on the projected corner box regardless of scale.
+- **Public API:** `CameraController.SetMode(CameraMode mode)` triggers a transition. `CameraController.SnapTo(CameraMode mode)` jumps without tween (use for game start / scene load).
+- All key fields (mode pitches, FOV, tween duration, follow distance) are `[SerializeField]` and can be tuned in the Inspector. `OnValidate` re-applies the current static mode preset.
+- Call `CameraController.Apply()` after a screen-orientation change (Phase 7 handles this automatically).
+- Do **not** add WASD / touch-drag / pinch-zoom controls. Fixed cinematic only.
 
 ### Performance Targets
-| Metric | Target |
-|---|---|
-| Draw calls (board scene) | ≤ 20 |
-| Triangles (board scene) | ≤ 30k |
-| Texture memory | ≤ 150 MB |
-| FPS (mid-range Android) | 60 during gameplay, 30 during dialogue |
-| AI move time — depth 2 (Easy) | < 500 ms |
-| AI move time — depth 4 (Medium) | < 2 000 ms |
-| AI move time — depth 6 (Hard) | < 3 000 ms |
-| App size | < 150 MB |
+
+Bumped considerably from the original mid-tier-mobile budget to match the cinematic-battlefield visual direction (see `## Visual Direction` and `## Game Size & Distribution`).
+
+| Metric | Target | Notes |
+|---|---|---|
+| Draw calls (battle scene) | ≤ 80 | Was 20. Increased for life-size pieces + per-chapter environment geometry. Aggressive SRP-batcher + GPU-instancing required. |
+| Triangles (battle scene) | ≤ 400k | Was 30k. Both armies (~32 hero-quality pieces) + environment. LOD0 only for active hero piece in CloseUp; LOD1/LOD2 for distant pieces. |
+| Texture memory (chapter loaded) | ≤ 800 MB | Was 150 MB total. Per-chapter PBR atlases (albedo + normal + metallic/roughness + AO). |
+| FPS — high-end | 60 during gameplay | Snapdragon 8 Gen 2+ / iPhone 13 (A15)+. |
+| FPS — mid-range | 30 during gameplay, with "Reduced Quality" preset | Snapdragon 700-series. Quality preset lowers texture mips, simpler shadows, simpler skybox. |
+| FPS — low-end | unsupported | Snapdragon 600 and below. Devices below the floor get a "device not supported" message at launch. |
+| AI move time — depth 2 (Easy) | < 500 ms | Unchanged — CPU work, independent of visual fidelity. |
+| AI move time — depth 4 (Medium) | < 2 000 ms | Unchanged. |
+| AI move time — depth 6 (Hard) | < 3 000 ms | Unchanged. |
+| App size (initial install) | ≤ 2 GB | Ships Chapters 1–3 baked in. |
+| App size (full game) | ≤ 5 GB | Chapters 4–8 downloaded on first unlock via Unity Addressables. |
 
 ### AI Profiling Procedure (Issue #33)
 **In-Editor (quick check):**
